@@ -66,13 +66,17 @@ struct TransactionsView: View {
                 }
             }
             .navigationBarHidden(true)
-            .alert("Harcamayı Sil", isPresented: $showingDeleteAlert, presenting: itemToDelete) { item in
+            .alert("Harcamayı Sil", isPresented: $showingDeleteAlert) {
                 Button("Vazgeç", role: .cancel) { }
                 Button("Sil", role: .destructive) {
-                    store.deleteTransaction(id: item.id)
+                    if let item = itemToDelete {
+                        store.deleteTransaction(id: item.id)
+                    }
                 }
-            } message: { item in
-                Text("\"\(item.title)\" harcamasını silmek istediğinize emin misiniz?")
+            } message: {
+                if let item = itemToDelete {
+                    Text("\"\(item.title)\" harcamasını silmek istediğinize emin misiniz?")
+                }
             }
             .sheet(isPresented: $showingAddModal) {
                 addExpenseModalView
@@ -195,7 +199,7 @@ struct TransactionsView: View {
                         .font(.system(size: 12))
                         .foregroundColor(Color(hex: "#64748B"))
                     
-                    Text(item.date.formatted(.dateTime.day().month(.abbreviated)))
+                    Text(item.date.formatted(date: .abbreviated, time: .omitted))
                         .font(.system(size: 12))
                         .foregroundColor(Color(hex: "#64748B"))
                 }
@@ -211,7 +215,7 @@ struct TransactionsView: View {
             
             // Amount and Delete Action
             VStack(alignment: .trailing, spacing: 4) {
-                Text("-₺\(item.amount.formatted(.number.precision(.fractionLength(2))))")
+                Text("-₺\(String(format: "%.2f", item.amount))")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "#EF4444"))
                 
