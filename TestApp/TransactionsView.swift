@@ -355,13 +355,20 @@ struct TransactionsView: View {
                                       let data = try? await item.loadTransferable(type: Data.self),
                                       let uiImage = UIImage(data: data) else { return }
                                 
-                                await MainActor.run {
-                                    formReceiptImage = uiImage
-                                    isScanningReceipt = true
-                                }
+                                formReceiptImage = uiImage
+                                isScanningReceipt = true
                                 
-                                // Perform OCR to automatically parse total amount or title from receipt
-                                performReceiptOCR(uiImage)
+                                let ocrResult = await ScaleOCRScanner.shared.scanReceiptText(uiImage)
+                                
+                                isScanningReceipt = false
+                                Haptic.success()
+                                
+                                if formTitle.isEmpty {
+                                    formTitle = ocrResult.title ?? "Fiş Harcaması"
+                                }
+                                if let amt = ocrResult.amount, formAmount.isEmpty {
+                                    formAmount = String(format: "%.2f", amt)
+                                }
                             }
                         }
                         
@@ -445,51 +452,5 @@ struct TransactionsView: View {
         
         store.addTransaction(newExpense)
         showingAddModal = false
-    }
-    
-    private func performReceiptOCR(_ image: UIImage) {
-        guard let cgImage = image.cgImage else {
-            isScanningReceipt = false
-            return
-        }
-        
-        let request = VNRecognizeTextRequest { req, _ in
-            guard let observations = req.results as? [VNRecognizedTextObservation] else {
-                Task { @MainActor in isScanningReceipt = false }
-                return
-            }
-            
-            let lines = observations.compactMap { $0.topCandidates(1).first?.string }
-            
-            Task { @MainActor in
-                isScanningReceipt = false
-                Haptic.success()
-                
-                if formTitle.isEmpty {
-                    formTitle = "Fiş Harcaması"
-                }
-                
-                // Search for total amount keyword (TOPLAM, TUTAR, TOTAL, ₺)
-                for line in lines {
-                    let upper = line.uppercased()
-                    if upper.contains("TOPLAM") || upper.contains("TUTAR") || upper.contains("TOTAL") {
-                        let digitsOnly = line.components(separatedBy: CharacterSet(charactersIn: "0123456789.,").inverted).filter { !$0.isEmpty }
-                        if let lastVal = digitsOnly.last {
-                            let cleanVal = lastVal.replacingOccurrences(of: ",", with: ".")
-                            if let num = Double(cleanVal), num > 0 {
-                                if formAmount.isEmpty {
-                                    formAmount = String(format: "%.2f", num)
-                                }
-                                break
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        request.recognitionLevel = .accurate
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
     }
 }

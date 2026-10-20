@@ -195,4 +195,44 @@ final class ScaleOCRScanner: ObservableObject {
         }
         return nil
     }
+    
+    // Scan receipt image and return parsed amount and title
+    func scanReceiptText(_ image: UIImage) async -> (amount: Double?, title: String?) {
+        guard let cgImage = image.cgImage else { return (nil, nil) }
+        
+        return await withCheckedContinuation { continuation in
+            let request = VNRecognizeTextRequest { req, _ in
+                guard let observations = req.results as? [VNRecognizedTextObservation] else {
+                    continuation.resume(returning: (nil, nil))
+                    return
+                }
+                
+                let lines = observations.compactMap { $0.topCandidates(1).first?.string }
+                var parsedAmount: Double? = nil
+                
+                for line in lines {
+                    let upper = line.uppercased()
+                    if upper.contains("TOPLAM") || upper.contains("TUTAR") || upper.contains("TOTAL") {
+                        let digitsOnly = line.components(separatedBy: CharacterSet(charactersIn: "0123456789.,").inverted).filter { !$0.isEmpty }
+                        if let lastVal = digitsOnly.last {
+                            let cleanVal = lastVal.replacingOccurrences(of: ",", with: ".")
+                            if let num = Double(cleanVal), num > 0 {
+                                parsedAmount = num
+                                break
+                            }
+                        }
+                    }
+                }
+                continuation.resume(returning: (parsedAmount, "Fiş Harcaması"))
+            }
+            
+            request.recognitionLevel = .accurate
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: (nil, nil))
+            }
+        }
+    }
 }
