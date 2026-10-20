@@ -38,21 +38,8 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
     }
     
     func startScanning() {
-        guard let central = centralManager, central.state == .poweredOn else {
-            statusMessage = "Lütfen Bluetooth'u açın"
-            return
-        }
-        
-        discoveredDevices.removeAll()
-        isScanning = true
-        statusMessage = "Tartı aranıyor (Tartıya çıkın)..."
-        Haptic.light()
-        
-        // Scan continuous advertisement packets without filtering so OKOK broadcast is captured immediately
-        central.scanForPeripherals(
-            withServices: nil,
-            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
-        )
+        // Bluetooth direct scale scanning is disabled in favor of OKOK photo OCR scanner
+        stopScanning()
     }
     
     func stopScanning() {
@@ -85,8 +72,7 @@ extension BluetoothScaleManager: CBCentralManagerDelegate {
             self.bluetoothState = central.state
             switch central.state {
             case .poweredOn:
-                self.statusMessage = "Bluetooth Aktif. Tartı aranıyor..."
-                self.startScanning()
+                self.statusMessage = "Bluetooth Aktif."
             case .poweredOff:
                 self.statusMessage = "Bluetooth Kapalı."
                 self.isConnected = false
@@ -318,10 +304,6 @@ extension BluetoothScaleManager {
         self.isStabilized = isLocked
         self.lastReadingTimestamp = Date()
         self.statusMessage = isLocked ? "Tartı Ölçümü Sabitlendi (\(weight) kg)" : "Ölçülüyor: \(weight) kg"
-        
-        if isLocked {
-            Haptic.success()
-        }
     }
     
     /// Parses standard Bluetooth SIG GATT Weight Measurement (0x2A9D)

@@ -17,7 +17,6 @@ struct TestApp: App {
                     Task {
                         _ = await healthKit.requestAuthorization()
                     }
-                    bluetooth.startScanning()
                 }
         }
     }
