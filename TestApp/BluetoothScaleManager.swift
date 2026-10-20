@@ -29,6 +29,9 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
     @Published var lastReadingTimestamp: Date? = nil
     @Published var statusMessage: String = "Bluetooth hazır değil"
     
+    // Debug packet display so user can instantly see raw byte stream if needed
+    @Published var rawHexDebug: String = ""
+    
     override init() {
         super.init()
         self.centralManager = CBCentralManager(delegate: self, queue: nil)
@@ -45,8 +48,7 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
         statusMessage = "Tartı aranıyor (Tartıya çıkın)..."
         Haptic.light()
         
-        // OKOK / Chipsea scales broadcast data in advertisement packets without connection!
-        // Allow duplicates so continuous real-time weight streaming works while standing on the scale.
+        // Scan continuous advertisement packets without filtering so OKOK broadcast is captured immediately
         central.scanForPeripherals(
             withServices: nil,
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
@@ -117,7 +119,7 @@ extension BluetoothScaleManager: CBCentralManagerDelegate {
             // 2. CHECK SERVICE DATA FOR BROADCASTED WEIGHT
             if let serviceData = advertisementData[CBAdvertisementDataServiceDataKey] as? [CBUUID: Data] {
                 for (_, data) in serviceData {
-                    if self.parseStandardWeightData(data) {
+                    if self.parseStandardWeightData(data) || self.parseOKOKManufacturerData(data, deviceName: devName) {
                         self.isConnected = true
                         return
                     }
@@ -194,94 +196,132 @@ extension BluetoothScaleManager: CBPeripheralDelegate {
 // MARK: - Protocol Parsing Engine (OKOK International & Standard BLE)
 extension BluetoothScaleManager {
     
-    /// Parses OKOK International / Chipsea BLE broadcast payload (Header 0xCA)
+    /// Parses OKOK International / Chipsea BLE broadcast payload
     @discardableResult
     func parseOKOKManufacturerData(_ data: Data, deviceName: String) -> Bool {
         let bytes = [UInt8](data)
+        guard bytes.count >= 4 else { return false }
         
-        // Find 0xCA header index in payload
-        guard let caIndex = bytes.firstIndex(of: 0xCA) else {
-            // Also handle raw payload where 0xCA was stripped or first 2 bytes are Company ID
-            if bytes.count >= 12 {
-                return parseGenericManufacturerWeight(bytes)
+        self.rawHexDebug = bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+        
+        // -------------------------------------------------------------
+        // VARIANT 1: OpenScale V20 (Manufacturer ID 0x20CA or 0xCA magic)
+        // IDX_V20_FINAL = 6
+        // IDX_V20_WEIGHT_MSB = 8, IDX_V20_WEIGHT_LSB = 9
+        // -------------------------------------------------------------
+        if let caIndex = bytes.firstIndex(of: 0xCA) {
+            let p = Array(bytes[caIndex...])
+            
+            // Check if V20 format (starts with CA 20 or length >= 10)
+            if p.count >= 10 {
+                let v20WeightRaw = (UInt16(p[8]) << 8) | UInt16(p[9])
+                let isV20Locked = p.count > 6 && (p[6] == 0x01 || p[6] == 0x02)
+                
+                if let validWeight = evaluateCandidateWeight(raw: v20WeightRaw) {
+                    applyWeight(validWeight, isLocked: isV20Locked)
+                    return true
+                }
             }
-            return false
-        }
-        
-        // Payload from 0xCA:
-        // Byte 0: 0xCA (Magic)
-        // Byte 1: Protocol / Type (0x11, 0x20, etc.)
-        // Byte 2: Length
-        // Byte 3: Status (0x00 = unstable/interim, 0x01 = locked/stabilized)
-        // Byte 4: Device Type
-        // ...
-        // Byte 10-11: Weight (Big Endian or Little Endian, resolution 0.1 kg or 0.01 kg)
-        // Byte 12-13: Impedance (Ohm / 10)
-        let payload = Array(bytes[caIndex...])
-        guard payload.count >= 12 else { return false }
-        
-        let statusFlag = payload[3]
-        let isLocked = (statusFlag == 0x01)
-        
-        // Weight is at index 10 and 11
-        let rawWeightBig = (UInt16(payload[10]) << 8) | UInt16(payload[11])
-        let rawWeightLittle = UInt16(payload[10]) | (UInt16(payload[11]) << 8)
-        
-        // Determine plausible weight in 20.0 kg - 220.0 kg
-        var candidateWeight: Double = 0.0
-        
-        let test1 = Double(rawWeightBig) / 10.0 // e.g. 750 -> 75.0 kg
-        let test2 = Double(rawWeightBig) / 100.0 // e.g. 7500 -> 75.0 kg
-        let test3 = Double(rawWeightLittle) / 10.0
-        let test4 = Double(rawWeightLittle) / 100.0
-        
-        if test1 >= 15.0 && test1 <= 250.0 {
-            candidateWeight = test1
-        } else if test2 >= 15.0 && test2 <= 250.0 {
-            candidateWeight = test2
-        } else if test3 >= 15.0 && test3 <= 250.0 {
-            candidateWeight = test3
-        } else if test4 >= 15.0 && test4 <= 250.0 {
-            candidateWeight = test4
-        }
-        
-        guard candidateWeight > 15.0 else { return false }
-        
-        self.liveWeightKg = (candidateWeight * 10).rounded() / 10
-        self.isStabilized = isLocked
-        self.lastReadingTimestamp = Date()
-        self.statusMessage = isLocked ? "Tartı Ölçümü Sabitlendi (\(self.liveWeightKg) kg)" : "Ölçülüyor: \(self.liveWeightKg) kg"
-        
-        // Parse impedance for body fat if available
-        if payload.count >= 14 {
-            let impedance = (UInt16(payload[12]) << 8) | UInt16(payload[13])
-            if impedance > 200 && impedance < 1500 {
-                // Approximate standard formula
-                self.bodyFatPercentage = (Double(impedance) * 0.015 + 10.0).rounded()
+            
+            // Check V11 format: IDX_V11_WEIGHT_MSB = 3, LSB = 4 (or 4, 5)
+            if p.count >= 6 {
+                let v11WeightRaw = (UInt16(p[3]) << 8) | UInt16(p[4])
+                if let validWeight = evaluateCandidateWeight(raw: v11WeightRaw) {
+                    let isV11Locked = p.count > 2 && (p[2] == 0x01)
+                    applyWeight(validWeight, isLocked: isV11Locked)
+                    return true
+                }
+            }
+            
+            // Check legacy 10, 11
+            if p.count >= 12 {
+                let raw1011 = (UInt16(p[10]) << 8) | UInt16(p[11])
+                if let validWeight = evaluateCandidateWeight(raw: raw1011) {
+                    let isLocked = (p[3] == 0x01)
+                    applyWeight(validWeight, isLocked: isLocked)
+                    return true
+                }
             }
         }
         
-        if isLocked {
-            Haptic.success()
-        } else {
-            Haptic.light()
-        }
-        return true
-    }
-    
-    private func parseGenericManufacturerWeight(_ bytes: [UInt8]) -> Bool {
-        // Look for plausible 2-byte weight pairs inside raw manufacturer data
-        for i in 0..<(bytes.count - 1) {
-            let big = (UInt16(bytes[i]) << 8) | UInt16(bytes[i + 1])
-            let val = Double(big) / 10.0
-            if val >= 35.0 && val <= 200.0 {
-                self.liveWeightKg = (val * 10).rounded() / 10
-                self.lastReadingTimestamp = Date()
-                self.statusMessage = "Ölçüm: \(self.liveWeightKg) kg"
+        // -------------------------------------------------------------
+        // VARIANT 2: OKOK C0 Protocol (bytes start with Weight MSB at 0 or 2)
+        // -------------------------------------------------------------
+        if bytes.count >= 4 {
+            // First 2 bytes
+            let raw01 = (UInt16(bytes[0]) << 8) | UInt16(bytes[1])
+            if let validWeight = evaluateCandidateWeight(raw: raw01) {
+                applyWeight(validWeight, isLocked: true)
+                return true
+            }
+            
+            // Offset 2, 3 (when first 2 bytes are Company ID)
+            let raw23 = (UInt16(bytes[2]) << 8) | UInt16(bytes[3])
+            if let validWeight = evaluateCandidateWeight(raw: raw23) {
+                applyWeight(validWeight, isLocked: true)
                 return true
             }
         }
+        
+        // -------------------------------------------------------------
+        // VARIANT 3: Intelligent Sliding-Window Scanner for Human Weight
+        // Evaluates every adjacent 2-byte pair with /10, /100 and Jin (0.5 kg)
+        // -------------------------------------------------------------
+        for i in 0..<(bytes.count - 1) {
+            let big = (UInt16(bytes[i]) << 8) | UInt16(bytes[i + 1])
+            let little = UInt16(bytes[i]) | (UInt16(bytes[i + 1]) << 8)
+            
+            if let validWeight = evaluateCandidateWeight(raw: big) {
+                // If stabilized status byte precedes it
+                let isLocked = (i > 0 && (bytes[i - 1] == 0x01 || bytes[i - 1] == 0x02))
+                applyWeight(validWeight, isLocked: isLocked)
+                return true
+            }
+            
+            if let validWeight = evaluateCandidateWeight(raw: little) {
+                let isLocked = (i > 0 && (bytes[i - 1] == 0x01 || bytes[i - 1] == 0x02))
+                applyWeight(validWeight, isLocked: isLocked)
+                return true
+            }
+        }
+        
         return false
+    }
+    
+    private func evaluateCandidateWeight(raw: UInt16) -> Double? {
+        guard raw > 0 else { return nil }
+        
+        let c1 = Double(raw) / 10.0          // Standard kg (e.g. 752 -> 75.2 kg)
+        let c2 = Double(raw) / 100.0         // High-res kg (e.g. 7520 -> 75.20 kg)
+        let c3 = (Double(raw) / 10.0) / 2.0  // Jin (catty) to kg (e.g. 1504 Jin -> 75.2 kg)
+        let c4 = (Double(raw) / 100.0) / 2.0
+        
+        // Human adult weight sanity range: 35 kg to 180 kg
+        if c1 >= 35.0 && c1 <= 180.0 {
+            return (c1 * 10).rounded() / 10
+        }
+        if c3 >= 35.0 && c3 <= 180.0 {
+            return (c3 * 10).rounded() / 10
+        }
+        if c2 >= 35.0 && c2 <= 180.0 {
+            return (c2 * 10).rounded() / 10
+        }
+        if c4 >= 35.0 && c4 <= 180.0 {
+            return (c4 * 10).rounded() / 10
+        }
+        
+        return nil
+    }
+    
+    private func applyWeight(_ weight: Double, isLocked: Bool) {
+        self.liveWeightKg = weight
+        self.isStabilized = isLocked
+        self.lastReadingTimestamp = Date()
+        self.statusMessage = isLocked ? "Tartı Ölçümü Sabitlendi (\(weight) kg)" : "Ölçülüyor: \(weight) kg"
+        
+        if isLocked {
+            Haptic.success()
+        }
     }
     
     /// Parses standard Bluetooth SIG GATT Weight Measurement (0x2A9D)
@@ -300,12 +340,8 @@ extension BluetoothScaleManager {
             calculatedWeightKg = calculatedWeightKg * 0.45359237
         }
         
-        if calculatedWeightKg > 15.0 && calculatedWeightKg < 250.0 {
-            self.liveWeightKg = (calculatedWeightKg * 10).rounded() / 10
-            self.isStabilized = isStabilizedFlag
-            self.lastReadingTimestamp = Date()
-            self.statusMessage = "Ölçüm: \(self.liveWeightKg) kg"
-            Haptic.light()
+        if calculatedWeightKg >= 35.0 && calculatedWeightKg <= 200.0 {
+            applyWeight((calculatedWeightKg * 10).rounded() / 10, isLocked: isStabilizedFlag)
             return true
         }
         return false
