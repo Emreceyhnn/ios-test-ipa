@@ -80,9 +80,6 @@ final class ScaleOCRScanner: ObservableObject {
     private func parseOKOKTextLines(_ lines: [String]) -> OKOKScanResult {
         var result = OKOKScanResult()
         
-        // Joined text for flexible regex matching
-        let fullText = lines.joined(separator: "\n")
-        
         // 1. Primary Weight (Prominent 91.95 or 91.95Kg)
         for line in lines {
             let clean = line.replacingOccurrences(of: " ", with: "").lowercased()

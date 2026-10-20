@@ -126,7 +126,7 @@ struct TransactionsView: View {
                     selectedCategoryId = nil
                 } label: {
                     Text("Tümü")
-                        .font(.system(size: 12, weight: selectedCategoryId == nil ? .bold : .normal))
+                        .font(.system(size: 12, weight: selectedCategoryId == nil ? .bold : .regular))
                         .foregroundColor(selectedCategoryId == nil ? .white : Color(hex: "#94A3B8"))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
@@ -151,7 +151,7 @@ struct TransactionsView: View {
                                 .frame(width: 7, height: 7)
                             Text(cat.name)
                         }
-                        .font(.system(size: 12, weight: isSelected ? .bold : .normal))
+                        .font(.system(size: 12, weight: isSelected ? .bold : .regular))
                         .foregroundColor(isSelected ? .white : Color(hex: "#94A3B8"))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
@@ -309,7 +309,7 @@ struct TransactionsView: View {
                                             .fill(Color(hex: c.colorHex))
                                             .frame(width: 8, height: 8)
                                         Text(c.name)
-                                            .font(.system(size: 12, weight: isSelected ? .bold : .normal))
+                                            .font(.system(size: 12, weight: isSelected ? .bold : .regular))
                                             .foregroundColor(isSelected ? Color(hex: "#F8FAFC") : Color(hex: "#94A3B8"))
                                     }
                                     .padding(.horizontal, 12)
