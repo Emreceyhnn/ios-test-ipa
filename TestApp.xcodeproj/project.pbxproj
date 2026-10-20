@@ -9,6 +9,19 @@
 /* Begin PBXBuildFile section */
 		A10000012900000000000001 /* TestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012900000000000001 /* TestApp.swift */; };
 		A10000022900000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000022900000000000002 /* ContentView.swift */; };
+		A10000042900000000000004 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000042900000000000004 /* Theme.swift */; };
+		A10000052900000000000005 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000052900000000000005 /* Models.swift */; };
+		A10000062900000000000006 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000062900000000000006 /* HealthKitManager.swift */; };
+		A10000072900000000000007 /* BluetoothScaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000072900000000000007 /* BluetoothScaleManager.swift */; };
+		A10000082900000000000008 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000082900000000000008 /* SupabaseService.swift */; };
+		A10000092900000000000009 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000092900000000000009 /* AppStore.swift */; };
+		A10000102900000000000010 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001029000000000000010 /* DashboardView.swift */; };
+		A10000112900000000000011 /* HealthTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001129000000000000011 /* HealthTrackerView.swift */; };
+		A10000122900000000000012 /* TransactionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001229000000000000012 /* TransactionsView.swift */; };
+		A10000132900000000000013 /* SubscriptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001329000000000000013 /* SubscriptionsView.swift */; };
+		A10000142900000000000014 /* SplitBillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001429000000000000014 /* SplitBillView.swift */; };
+		A10000152900000000000015 /* SavingsGoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001529000000000000015 /* SavingsGoalsView.swift */; };
+		A10000162900000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001629000000000000016 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -16,6 +29,19 @@
 		B10000012900000000000001 /* TestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestApp.swift; sourceTree = "<group>"; };
 		B10000022900000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B10000032900000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000042900000000000004 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		B10000052900000000000005 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B10000062900000000000006 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		B10000072900000000000007 /* BluetoothScaleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothScaleManager.swift; sourceTree = "<group>"; };
+		B10000082900000000000008 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		B10000092900000000000009 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		B100001029000000000000010 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		B100001129000000000000011 /* HealthTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthTrackerView.swift; sourceTree = "<group>"; };
+		B100001229000000000000012 /* TransactionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsView.swift; sourceTree = "<group>"; };
+		B100001329000000000000013 /* SubscriptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsView.swift; sourceTree = "<group>"; };
+		B100001429000000000000014 /* SplitBillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitBillView.swift; sourceTree = "<group>"; };
+		B100001529000000000000015 /* SavingsGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalsView.swift; sourceTree = "<group>"; };
+		B100001629000000000000016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,6 +68,19 @@
 			children = (
 				B10000012900000000000001 /* TestApp.swift */,
 				B10000022900000000000002 /* ContentView.swift */,
+				B10000042900000000000004 /* Theme.swift */,
+				B10000052900000000000005 /* Models.swift */,
+				B10000062900000000000006 /* HealthKitManager.swift */,
+				B10000072900000000000007 /* BluetoothScaleManager.swift */,
+				B10000082900000000000008 /* SupabaseService.swift */,
+				B10000092900000000000009 /* AppStore.swift */,
+				B100001029000000000000010 /* DashboardView.swift */,
+				B100001129000000000000011 /* HealthTrackerView.swift */,
+				B100001229000000000000012 /* TransactionsView.swift */,
+				B100001329000000000000013 /* SubscriptionsView.swift */,
+				B100001429000000000000014 /* SplitBillView.swift */,
+				B100001529000000000000015 /* SavingsGoalsView.swift */,
+				B100001629000000000000016 /* SettingsView.swift */,
 				B10000032900000000000003 /* Info.plist */,
 			);
 			path = TestApp;
@@ -67,8 +106,6 @@
 				C10000022900000000000002 /* Resources */,
 			);
 			buildRules = (
-			);
-			dependencies = (
 			);
 			name = TestApp;
 			productName = TestApp;
@@ -125,6 +162,19 @@
 			files = (
 				A10000012900000000000001 /* TestApp.swift in Sources */,
 				A10000022900000000000002 /* ContentView.swift in Sources */,
+				A10000042900000000000004 /* Theme.swift in Sources */,
+				A10000052900000000000005 /* Models.swift in Sources */,
+				A10000062900000000000006 /* HealthKitManager.swift in Sources */,
+				A10000072900000000000007 /* BluetoothScaleManager.swift in Sources */,
+				A10000082900000000000008 /* SupabaseService.swift in Sources */,
+				A10000092900000000000009 /* AppStore.swift in Sources */,
+				A10000102900000000000010 /* DashboardView.swift in Sources */,
+				A10000112900000000000011 /* HealthTrackerView.swift in Sources */,
+				A10000122900000000000012 /* TransactionsView.swift in Sources */,
+				A10000132900000000000013 /* SubscriptionsView.swift in Sources */,
+				A10000142900000000000014 /* SplitBillView.swift in Sources */,
+				A10000152900000000000015 /* SavingsGoalsView.swift in Sources */,
+				A10000162900000000000016 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,7 +193,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -153,7 +203,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -176,11 +226,11 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -207,8 +257,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.emreceyhnn.testipa;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.emreceyhnn.aurafit;
+				PRODUCT_NAME = "AuraFit Finance";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -230,8 +280,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.emreceyhnn.testipa;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.emreceyhnn.aurafit;
+				PRODUCT_NAME = "AuraFit Finance";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

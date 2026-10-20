@@ -4,14 +4,16 @@
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>AuraFit Finance</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
-    <string>com.emreceyhnn.testipa</string>
+    <string>com.emreceyhnn.aurafit</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>TestApp</string>
+    <string>AuraFit Finance</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -37,5 +39,20 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
+    <!-- Privacy & Entitlements -->
+    <key>NSHealthShareUsageDescription</key>
+    <string>Adım, aktif kalori, mesafe, kalp atış hızı ve dinlenme verilerinizi analiz etmek ve buluta senkronize etmek için Apple Sağlık erişimi gereklidir.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Bluetooth tartıdan veya manuel girilen kilo verilerini Apple Sağlık profilinize otomatik kaydetmek için izin gereklidir.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Akıllı tartınızla bağlantı kurup kilo ve vücut analizi ölçümünü almak için Bluetooth izni gereklidir.</string>
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>Akıllı tartıya bağlanabilmek için Bluetooth gereklidir.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Harcama makbuzlarını doğrudan fotoğraflamak için kamera izni gereklidir.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Harcama makbuzlarını ve fatura görsellerini yüklemek için fotoğraflara erişim izni gereklidir.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Finansal ve sağlık verilerinizi korumak amacıyla Face ID ile kimlik doğrulama gereklidir.</string>
 </dict>
 </plist>
