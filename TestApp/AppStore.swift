@@ -88,6 +88,11 @@ final class AppStore: ObservableObject {
         Haptic.warning()
     }
     
+    func deleteTransaction(id: UUID) {
+        transactions.removeAll(where: { $0.id == id })
+        Haptic.warning()
+    }
+    
     func addCategory(_ item: CategoryItem) {
         categories.append(item)
         Haptic.success()

@@ -15,6 +15,7 @@ struct TransactionItem: Identifiable, Codable, Hashable {
     var amount: Double
     var type: TransactionType
     var title: String
+    var note: String?
     var receiptUrl: String?
     var date: Date
     
@@ -27,6 +28,7 @@ struct TransactionItem: Identifiable, Codable, Hashable {
         amount: Double,
         type: TransactionType = .expense,
         title: String,
+        note: String? = nil,
         receiptUrl: String? = nil,
         date: Date = Date()
     ) {
@@ -38,6 +40,7 @@ struct TransactionItem: Identifiable, Codable, Hashable {
         self.amount = amount
         self.type = type
         self.title = title
+        self.note = note
         self.receiptUrl = receiptUrl
         self.date = date
     }

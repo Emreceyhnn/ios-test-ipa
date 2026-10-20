@@ -24,7 +24,7 @@ struct ContentView: View {
             
             TransactionsView()
                 .tabItem {
-                    Label("İşlemler", systemImage: "chart.pie.fill")
+                    Label("Harcamalar", systemImage: "creditcard.fill")
                 }
                 .tag(1)
             
