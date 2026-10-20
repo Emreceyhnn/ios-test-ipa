@@ -1,20 +1,42 @@
 import Foundation
 import SwiftUI
 
-// MARK: - App Data Store & View Model
+// MARK: - App Data Store & View Model with UserDefaults Persistence
 @MainActor
 final class AppStore: ObservableObject {
     static let shared = AppStore()
     
-    // Currency
-    @Published var selectedCurrency: String = "₺" // "₺", "$", "€"
+    // Keys for local persistence
+    private let kCurrency = "app_currency_pref"
+    private let kTransactions = "app_stored_transactions_v1"
+    private let kCategories = "app_stored_categories_v1"
+    private let kPlannedPayments = "app_stored_payments_v1"
+    private let kSavingsGoals = "app_stored_goals_v1"
+    private let kGroupSplits = "app_stored_splits_v1"
     
-    // Data collections
-    @Published var transactions: [TransactionItem] = []
-    @Published var categories: [CategoryItem] = []
-    @Published var plannedPayments: [PlannedPaymentItem] = []
-    @Published var savingsGoals: [SavingsGoalItem] = []
-    @Published var groupSplits: [GroupSplitItem] = []
+    // Currency
+    @Published var selectedCurrency: String = "₺" {
+        didSet {
+            UserDefaults.standard.set(selectedCurrency, forKey: kCurrency)
+        }
+    }
+    
+    // Clean Data collections (No fake/hardcoded dummy records)
+    @Published var transactions: [TransactionItem] = [] {
+        didSet { saveTransactions() }
+    }
+    @Published var categories: [CategoryItem] = [] {
+        didSet { saveCategories() }
+    }
+    @Published var plannedPayments: [PlannedPaymentItem] = [] {
+        didSet { savePlannedPayments() }
+    }
+    @Published var savingsGoals: [SavingsGoalItem] = [] {
+        didSet { saveSavingsGoals() }
+    }
+    @Published var groupSplits: [GroupSplitItem] = [] {
+        didSet { saveGroupSplits() }
+    }
     
     // Global Health & Bluetooth Managers
     let healthKit = HealthKitManager.shared
@@ -22,7 +44,7 @@ final class AppStore: ObservableObject {
     let supabase = SupabaseService.shared
     
     private init() {
-        seedSampleData()
+        loadPersistedData()
     }
     
     // MARK: - Computed Financial Totals
@@ -71,9 +93,19 @@ final class AppStore: ObservableObject {
         Haptic.success()
     }
     
+    func deleteCategory(at offsets: IndexSet) {
+        categories.remove(atOffsets: offsets)
+        Haptic.warning()
+    }
+    
     func addPlannedPayment(_ item: PlannedPaymentItem) {
         plannedPayments.append(item)
         Haptic.success()
+    }
+    
+    func deletePlannedPayment(at offsets: IndexSet) {
+        plannedPayments.remove(atOffsets: offsets)
+        Haptic.warning()
     }
     
     func togglePaymentStatus(id: UUID) {
@@ -88,6 +120,11 @@ final class AppStore: ObservableObject {
         Haptic.success()
     }
     
+    func deleteSavingsGoal(at offsets: IndexSet) {
+        savingsGoals.remove(atOffsets: offsets)
+        Haptic.warning()
+    }
+    
     func depositToGoal(id: UUID, amount: Double) {
         if let index = savingsGoals.firstIndex(where: { $0.id == id }) {
             savingsGoals[index].currentAmount += amount
@@ -100,51 +137,81 @@ final class AppStore: ObservableObject {
         Haptic.success()
     }
     
-    // MARK: - Sample Seed Data
-    private func seedSampleData() {
-        categories = [
-            CategoryItem(name: "Yiyecek & İçecek", iconSymbol: "fork.knife", colorHex: "#F59E0B", type: .expense, budgetLimit: 7500),
-            CategoryItem(name: "Kira & Faturalar", iconSymbol: "house.fill", colorHex: "#3B82F6", type: .expense, budgetLimit: 18000),
-            CategoryItem(name: "Ulaşım", iconSymbol: "car.fill", colorHex: "#06B6D4", type: .expense, budgetLimit: 4000),
-            CategoryItem(name: "Eğlence & Hobi", iconSymbol: "gamecontroller.fill", colorHex: "#8B5CF6", type: .expense, budgetLimit: 3000),
-            CategoryItem(name: "Sağlık & Spor", iconSymbol: "heart.fill", colorHex: "#10B981", type: .expense, budgetLimit: 3500),
-            CategoryItem(name: "Maaş / Gelir", iconSymbol: "banknote.fill", colorHex: "#10B981", type: .income, budgetLimit: 0)
-        ]
+    func deleteGroupSplit(at offsets: IndexSet) {
+        groupSplits.remove(atOffsets: offsets)
+        Haptic.warning()
+    }
+    
+    // MARK: - Local Persistence
+    private func loadPersistedData() {
+        if let curr = UserDefaults.standard.string(forKey: kCurrency), !curr.isEmpty {
+            self.selectedCurrency = curr
+        }
         
-        transactions = [
-            TransactionItem(categoryName: "Maaş / Gelir", categoryIcon: "banknote.fill", categoryColorHex: "#10B981", amount: 65000, type: .income, title: "Aylık Şirket Maaşı", date: Date().addingTimeInterval(-86400 * 2)),
-            TransactionItem(categoryName: "Kira & Faturalar", categoryIcon: "house.fill", categoryColorHex: "#3B82F6", amount: 16500, type: .expense, title: "Ev Kirası", date: Date().addingTimeInterval(-86400 * 3)),
-            TransactionItem(categoryName: "Yiyecek & İçecek", categoryIcon: "fork.knife", categoryColorHex: "#F59E0B", amount: 840, type: .expense, title: "Haftalık Market Alışverişi", date: Date().addingTimeInterval(-3600 * 4)),
-            TransactionItem(categoryName: "Sağlık & Spor", categoryIcon: "heart.fill", categoryColorHex: "#10B981", amount: 1200, type: .expense, title: "Fitness Üyeliği", date: Date().addingTimeInterval(-86400 * 5)),
-            TransactionItem(categoryName: "Ulaşım", categoryIcon: "car.fill", categoryColorHex: "#06B6D4", amount: 650, type: .expense, title: "Benzin", date: Date().addingTimeInterval(-3600 * 18))
-        ]
+        let decoder = JSONDecoder()
         
-        plannedPayments = [
-            PlannedPaymentItem(title: "Netflix 4K Ultra", amount: 249.99, dueDate: Date().addingTimeInterval(86400 * 4), frequency: .monthly, iconSymbol: "tv.fill"),
-            PlannedPaymentItem(title: "Spotify Aile", amount: 99.90, dueDate: Date().addingTimeInterval(86400 * 8), frequency: .monthly, iconSymbol: "music.note"),
-            PlannedPaymentItem(title: "Ev İnterneti (Fiber)", amount: 480.00, dueDate: Date().addingTimeInterval(86400 * 12), frequency: .monthly, iconSymbol: "wifi"),
-            PlannedPaymentItem(title: "iCloud+ 2TB", amount: 199.99, dueDate: Date().addingTimeInterval(86400 * 15), frequency: .monthly, iconSymbol: "icloud.fill")
-        ]
+        if let data = UserDefaults.standard.data(forKey: kTransactions),
+           let items = try? decoder.decode([TransactionItem].self, from: data) {
+            self.transactions = items
+        }
         
-        savingsGoals = [
-            SavingsGoalItem(title: "Yeni iPhone Pro", targetAmount: 85000, currentAmount: 48000, deadline: Date().addingTimeInterval(86400 * 60), iconSymbol: "iphone.gen3", colorHex: "#6366F1"),
-            SavingsGoalItem(title: "Acil Durum Fonu", targetAmount: 120000, currentAmount: 92000, deadline: nil, iconSymbol: "shield.lefthalf.filled", colorHex: "#10B981"),
-            SavingsGoalItem(title: "Yurt Dışı Tatili", targetAmount: 50000, currentAmount: 15500, deadline: Date().addingTimeInterval(86400 * 120), iconSymbol: "airplane.departure", colorHex: "#06B6D4")
-        ]
+        if let data = UserDefaults.standard.data(forKey: kCategories),
+           let items = try? decoder.decode([CategoryItem].self, from: data), !items.isEmpty {
+            self.categories = items
+        } else {
+            // Essential Default Categories only (Empty expenses/incomes)
+            self.categories = [
+                CategoryItem(name: "Yiyecek & İçecek", iconSymbol: "fork.knife", colorHex: "#F59E0B", type: .expense),
+                CategoryItem(name: "Kira & Faturalar", iconSymbol: "house.fill", colorHex: "#3B82F6", type: .expense),
+                CategoryItem(name: "Ulaşım", iconSymbol: "car.fill", colorHex: "#06B6D4", type: .expense),
+                CategoryItem(name: "Sağlık & Spor", iconSymbol: "heart.fill", colorHex: "#10B981", type: .expense),
+                CategoryItem(name: "Maaş / Gelir", iconSymbol: "banknote.fill", colorHex: "#10B981", type: .income)
+            ]
+        }
         
-        groupSplits = [
-            GroupSplitItem(
-                title: "Hafta Sonu Akşam Yemeği",
-                totalAmount: 3600,
-                participants: [
-                    ParticipantShare(name: "Ben", shareAmount: 900, paidAmount: 3600, isSettled: false),
-                    ParticipantShare(name: "Ahmet", shareAmount: 900, paidAmount: 0, isSettled: false),
-                    ParticipantShare(name: "Can", shareAmount: 900, paidAmount: 0, isSettled: false),
-                    ParticipantShare(name: "Selin", shareAmount: 900, paidAmount: 0, isSettled: true)
-                ],
-                isSettled: false,
-                date: Date().addingTimeInterval(-86400 * 1)
-            )
-        ]
+        if let data = UserDefaults.standard.data(forKey: kPlannedPayments),
+           let items = try? decoder.decode([PlannedPaymentItem].self, from: data) {
+            self.plannedPayments = items
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: kSavingsGoals),
+           let items = try? decoder.decode([SavingsGoalItem].self, from: data) {
+            self.savingsGoals = items
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: kGroupSplits),
+           let items = try? decoder.decode([GroupSplitItem].self, from: data) {
+            self.groupSplits = items
+        }
+    }
+    
+    private func saveTransactions() {
+        if let data = try? JSONEncoder().encode(transactions) {
+            UserDefaults.standard.set(data, forKey: kTransactions)
+        }
+    }
+    
+    private func saveCategories() {
+        if let data = try? JSONEncoder().encode(categories) {
+            UserDefaults.standard.set(data, forKey: kCategories)
+        }
+    }
+    
+    private func savePlannedPayments() {
+        if let data = try? JSONEncoder().encode(plannedPayments) {
+            UserDefaults.standard.set(data, forKey: kPlannedPayments)
+        }
+    }
+    
+    private func saveSavingsGoals() {
+        if let data = try? JSONEncoder().encode(savingsGoals) {
+            UserDefaults.standard.set(data, forKey: kSavingsGoals)
+        }
+    }
+    
+    private func saveGroupSplits() {
+        if let data = try? JSONEncoder().encode(groupSplits) {
+            UserDefaults.standard.set(data, forKey: kGroupSplits)
+        }
     }
 }

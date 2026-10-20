@@ -1,6 +1,5 @@
 import SwiftUI
 import Charts
-import PhotosUI
 
 // MARK: - Transactions View
 struct TransactionsView: View {
@@ -29,11 +28,15 @@ struct TransactionsView: View {
                         filterSection
                         
                         // Transactions List
-                        VStack(spacing: 12) {
-                            ForEach(filteredTransactions) { item in
-                                transactionRow(item)
+                        if filteredTransactions.isEmpty {
+                            emptyState
+                        } else {
+                            VStack(spacing: 12) {
+                                ForEach(filteredTransactions) { item in
+                                    transactionRow(item)
+                                }
+                                .onDelete(perform: store.deleteTransaction)
                             }
-                            .onDelete(perform: store.deleteTransaction)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -80,9 +83,16 @@ struct TransactionsView: View {
                 }
                 .frame(height: 180)
             } else {
-                Text("Henüz harcama verisi yok")
-                    .foregroundColor(.gray)
-                    .frame(height: 180)
+                VStack(spacing: 8) {
+                    Image(systemName: "chart.pie")
+                        .font(.system(size: 36))
+                        .foregroundColor(.gray.opacity(0.4))
+                    Text("Gider grafiği için henüz işlem eklenmedi")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
             }
         }
         .padding(18)
@@ -92,7 +102,7 @@ struct TransactionsView: View {
     // MARK: - Filter Pills
     private var filterSection: some View {
         HStack(spacing: 10) {
-            filterButton(title: "Tümü", filter: nil)
+            filterButton(title: "Tümü (\(store.transactions.count))", filter: nil)
             filterButton(title: "Giderler", filter: .expense)
             filterButton(title: "Gelirler", filter: .income)
             Spacer()
@@ -112,6 +122,24 @@ struct TransactionsView: View {
                 .foregroundColor(.white)
                 .cornerRadius(20)
         }
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "tray.fill")
+                .font(.system(size: 40))
+                .foregroundColor(.gray.opacity(0.4))
+            Text("Kayıtlı işlem bulunamadı")
+                .font(.subheadline.bold())
+                .foregroundColor(.white)
+            Text("Gelir ve giderlerinizi sağ üstteki + butonundan ekleyebilirsiniz.")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+        .glassCard(cornerRadius: 18)
     }
     
     // MARK: - Row

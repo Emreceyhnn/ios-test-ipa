@@ -16,8 +16,12 @@ struct SplitBillView: View {
                         summaryBanner
                         
                         // Groups List
-                        ForEach(store.groupSplits) { group in
-                            groupCard(group)
+                        if store.groupSplits.isEmpty {
+                            emptyState
+                        } else {
+                            ForEach(store.groupSplits) { group in
+                                groupCard(group)
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
@@ -29,23 +33,15 @@ struct SplitBillView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        // Quick demo add
-                        let newSplit = GroupSplitItem(
-                            title: "Kahve & Tatlı",
-                            totalAmount: 640,
-                            participants: [
-                                ParticipantShare(name: "Ben", shareAmount: 160, paidAmount: 640, isSettled: false),
-                                ParticipantShare(name: "Mehmet", shareAmount: 160, paidAmount: 0, isSettled: false),
-                                ParticipantShare(name: "Ayşe", shareAmount: 160, paidAmount: 0, isSettled: false),
-                                ParticipantShare(name: "Murat", shareAmount: 160, paidAmount: 0, isSettled: true)
-                            ]
-                        )
-                        store.addGroupSplit(newSplit)
+                        showingAddGroupSheet = true
                     } label: {
                         Image(systemName: "plus")
                             .foregroundColor(.white)
                     }
                 }
+            }
+            .sheet(isPresented: $showingAddGroupSheet) {
+                AddSplitGroupSheet(store: store)
             }
         }
     }
@@ -62,6 +58,35 @@ struct SplitBillView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(cornerRadius: 20)
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "person.2.badge.gearshape")
+                .font(.system(size: 40))
+                .foregroundColor(.gray.opacity(0.4))
+            Text("Kayıtlı grup hesabı yok")
+                .font(.subheadline.bold())
+                .foregroundColor(.white)
+            Text("Arkadaşlarınızla akşam yemeği veya seyahat harcamasını eşit veya özel bölüştürün.")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+            Button {
+                showingAddGroupSheet = true
+            } label: {
+                Text("Grup Harcaması Bölüştür")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Theme.cardBackground)
+                    .foregroundColor(Theme.emerald)
+                    .cornerRadius(10)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+        .glassCard(cornerRadius: 18)
     }
     
     private func groupCard(_ group: GroupSplitItem) -> some View {
@@ -120,5 +145,98 @@ struct SplitBillView: View {
         }
         .padding(18)
         .glassCard(cornerRadius: 20)
+    }
+}
+
+// MARK: - Add Split Group Sheet
+struct AddSplitGroupSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject var store: AppStore
+    
+    @State private var title: String = ""
+    @State private var totalAmountText: String = ""
+    @State private var namesList: String = "Ben, Can, Ali"
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    TextField("Etkinlik / Harcama (Örn: Akşam Yemeği)", text: $title)
+                        .padding()
+                        .background(Theme.cardBackground)
+                        .cornerRadius(12)
+                        .foregroundColor(.white)
+                    
+                    TextField("Toplam Hesap (\(store.selectedCurrency))", text: $totalAmountText)
+                        .keyboardType(.decimalPad)
+                        .padding()
+                        .background(Theme.cardBackground)
+                        .cornerRadius(12)
+                        .foregroundColor(.white)
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Kişiler (Virgülle ayırın)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        TextField("Örn: Ben, Ahmet, Burak", text: $namesList)
+                            .padding()
+                            .background(Theme.cardBackground)
+                            .cornerRadius(12)
+                            .foregroundColor(.white)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        if let total = Double(totalAmountText.replacingOccurrences(of: ",", with: ".")), !title.isEmpty {
+                            let names = namesList.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                            let count = Double(max(names.count, 1))
+                            let perPerson = (total / count * 100).rounded() / 100
+                            
+                            var participants: [ParticipantShare] = []
+                            for (index, name) in names.enumerated() {
+                                // First person is treated as payer
+                                let paid = index == 0 ? total : 0.0
+                                participants.append(
+                                    ParticipantShare(
+                                        name: name,
+                                        shareAmount: perPerson,
+                                        paidAmount: paid,
+                                        isSettled: false
+                                    )
+                                )
+                            }
+                            
+                            let split = GroupSplitItem(
+                                title: title,
+                                totalAmount: total,
+                                participants: participants
+                            )
+                            store.addGroupSplit(split)
+                            dismiss()
+                        }
+                    } label: {
+                        Text("Bölüştürmeyi Başlat")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Theme.emeraldGradient)
+                            .foregroundColor(.white)
+                            .cornerRadius(14)
+                    }
+                    .disabled(title.isEmpty || totalAmountText.isEmpty)
+                }
+                .padding()
+            }
+            .navigationTitle("Yeni Hesap Bölüş")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Kapat") { dismiss() }
+                }
+            }
+        }
     }
 }

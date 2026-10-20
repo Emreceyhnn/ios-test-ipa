@@ -29,7 +29,7 @@ struct HealthTrackerView: View {
                         // Steps & Calories Chart
                         weeklyTrendsChart
                         
-                        // Weight Tracking History Chart
+                        // Weight Tracking History Card
                         weightHistoryCard
                     }
                     .padding(.horizontal, 16)
@@ -50,6 +50,9 @@ struct HealthTrackerView: View {
                             .foregroundColor(Theme.emerald)
                     }
                 }
+            }
+            .sheet(isPresented: $showingManualInput) {
+                manualWeightSheet
             }
             .task {
                 if !healthKit.isAuthorized {
@@ -74,17 +77,23 @@ struct HealthTrackerView: View {
             
             Spacer()
             
-            Button("İzin İste") {
-                Task {
-                    _ = await healthKit.requestAuthorization()
+            if !healthKit.isAuthorized {
+                Button("İzin İste") {
+                    Task {
+                        _ = await healthKit.requestAuthorization()
+                    }
                 }
+                .font(.caption2.bold())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Theme.cardBackground)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            } else {
+                Text("Sensörler Canlı")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
             }
-            .font(.caption2.bold())
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Theme.cardBackground)
-            .foregroundColor(.white)
-            .cornerRadius(8)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -119,9 +128,13 @@ struct HealthTrackerView: View {
                 }
                 
                 if let fat = bluetooth.bodyFatPercentage {
-                    Text("Tahmini Vücut Yağı: %\(String(format: "%.1f", fat))")
+                    Text("Vücut Yağı: %\(String(format: "%.1f", fat))")
                         .font(.caption)
                         .foregroundColor(.cyan)
+                } else if healthKit.latestWeightKg != nil {
+                    Text("Apple Sağlık'tan Alınan Son Kayıt")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -140,7 +153,7 @@ struct HealthTrackerView: View {
                 } label: {
                     HStack {
                         Image(systemName: bluetooth.isScanning ? "stop.circle.fill" : "antenna.radiowaves.left.and.right")
-                        Text(bluetooth.isScanning ? "Durdur" : "Tartı Tara")
+                        Text(bluetooth.isScanning ? "Taramayı Durdur" : "Tartı Ara")
                     }
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
@@ -150,18 +163,17 @@ struct HealthTrackerView: View {
                     .cornerRadius(12)
                 }
                 
-                // Simulation Button for Testing without Physical Scale
                 Button {
-                    bluetooth.simulateScaleReading(targetWeight: 75.2)
+                    showingManualInput = true
                 } label: {
                     HStack {
-                        Image(systemName: "sparkles")
-                        Text("Simüle Et")
+                        Image(systemName: "square.and.pencil")
+                        Text("Manuel Kilo")
                     }
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Theme.cyanGradient)
+                    .background(Theme.cardBackground)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }
@@ -194,7 +206,7 @@ struct HealthTrackerView: View {
         .glassCard(cornerRadius: 22, strokeColor: bluetooth.isConnected ? Theme.emerald.opacity(0.5) : Theme.cardBorder)
     }
     
-    // MARK: - Health Ring Summary Cards
+    // MARK: - Health Summary Cards
     private var todayHealthSummaryCards: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
             // Steps
@@ -228,7 +240,7 @@ struct HealthTrackerView: View {
                 Text("\(String(format: "%.0f", healthKit.todayActiveCalories)) kcal")
                     .font(.title2.bold())
                     .foregroundColor(.white)
-                Text("Mesafe: \(String(format: "%.1f", healthKit.todayDistanceMeters / 1000)) km")
+                Text("Mesafe: \(String(format: "%.2f", healthKit.todayDistanceMeters / 1000)) km")
                     .font(.caption2)
                     .foregroundColor(.gray)
             }
@@ -247,7 +259,7 @@ struct HealthTrackerView: View {
                 Text(healthKit.restingHeartRateBpm != nil ? "\(Int(healthKit.restingHeartRateBpm!)) bpm" : "-- bpm")
                     .font(.title2.bold())
                     .foregroundColor(.white)
-                Text("Normal Aralık: 60-80")
+                Text(healthKit.restingHeartRateBpm != nil ? "Apple Watch verisi" : "Kayıt yok")
                     .font(.caption2)
                     .foregroundColor(.gray)
             }
@@ -266,7 +278,7 @@ struct HealthTrackerView: View {
                 Text("Supabase DB")
                     .font(.title3.bold())
                     .foregroundColor(.white)
-                Text("Her ölçümde anında yazılır")
+                Text(store.supabase.lastSyncTimestamp != nil ? "Son: \(store.supabase.lastSyncTimestamp!.formatted(date: .omitted, time: .shortened))" : "Hazır")
                     .font(.caption2)
                     .foregroundColor(Theme.emerald)
             }
@@ -282,7 +294,9 @@ struct HealthTrackerView: View {
                 .font(.headline)
                 .foregroundColor(.white)
             
-            if !healthKit.weeklyRecords.isEmpty {
+            let nonZeroRecords = healthKit.weeklyRecords.filter { $0.steps > 0 }
+            
+            if !nonZeroRecords.isEmpty {
                 Chart(healthKit.weeklyRecords) { item in
                     BarMark(
                         x: .value("Gün", item.date, unit: .day),
@@ -299,9 +313,16 @@ struct HealthTrackerView: View {
                 }
                 .frame(height: 160)
             } else {
-                Text("Veriler yükleniyor...")
-                    .foregroundColor(.gray)
-                    .frame(height: 160)
+                VStack(spacing: 8) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.system(size: 32))
+                        .foregroundColor(.gray.opacity(0.4))
+                    Text("Apple Sağlık'ta henüz son 7 güne ait adım kaydı yok")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 140)
             }
         }
         .padding(18)
@@ -311,7 +332,7 @@ struct HealthTrackerView: View {
     // MARK: - Weight History
     private var weightHistoryCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Kilo Gelişimi & Analiz")
+            Text("Kilo & Vücut Analizi")
                 .font(.headline)
                 .foregroundColor(.white)
             
@@ -320,18 +341,18 @@ struct HealthTrackerView: View {
                     Text("Son Ölçüm")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : "75.0 kg")
+                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : "Kayıt yok")
                         .font(.title2.bold())
                         .foregroundColor(.cyan)
                 }
                 Spacer()
                 VStack(alignment: .trailing) {
-                    Text("İdeal Kilo Aralığı")
+                    Text("Sağlık Senkronu")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Text("68 - 77 kg")
+                    Text(healthKit.isAuthorized ? "Aktif" : "Beklemede")
                         .font(.subheadline.bold())
-                        .foregroundColor(Theme.emerald)
+                        .foregroundColor(healthKit.isAuthorized ? Theme.emerald : Theme.amber)
                 }
             }
             .padding(14)
@@ -340,5 +361,54 @@ struct HealthTrackerView: View {
         }
         .padding(18)
         .glassCard(cornerRadius: 20)
+    }
+    
+    // MARK: - Manual Weight Sheet
+    private var manualWeightSheet: some View {
+        NavigationStack {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    TextField("Kilonuz (kg, Örn: 74.5)", text: $manualWeightText)
+                        .keyboardType(.decimalPad)
+                        .padding()
+                        .background(Theme.cardBackground)
+                        .cornerRadius(12)
+                        .foregroundColor(.white)
+                    
+                    Button {
+                        if let weight = Double(manualWeightText.replacingOccurrences(of: ",", with: ".")) {
+                            Task {
+                                let saved = await healthKit.saveWeight(kilograms: weight)
+                                if saved {
+                                    await store.syncAllHealthDataToDatabase()
+                                }
+                                showingManualInput = false
+                            }
+                        }
+                    } label: {
+                        Text("Apple Sağlık'a ve Buluta Yaz")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Theme.emeraldGradient)
+                            .foregroundColor(.white)
+                            .cornerRadius(14)
+                    }
+                    .disabled(manualWeightText.isEmpty)
+                    
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationTitle("Kilo Girişi")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Kapat") { showingManualInput = false }
+                }
+            }
+        }
     }
 }

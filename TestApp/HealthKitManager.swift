@@ -12,7 +12,7 @@ final class HealthKitManager: ObservableObject {
     @Published var isSyncing: Bool = false
     @Published var authorizationError: String?
     
-    // Live Today Data
+    // Live Today Data (Pure sensor metrics, default 0 or nil)
     @Published var todaySteps: Int = 0
     @Published var todayActiveCalories: Double = 0.0
     @Published var todayDistanceMeters: Double = 0.0
@@ -35,11 +35,13 @@ final class HealthKitManager: ObservableObject {
             return false
         }
         
-        let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
-        let calorieType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
-        let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!
-        let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass)!
-        let heartRateType = HKQuantityType.quantityType(forIdentifier: .restingHeartRate)!
+        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount),
+              let calorieType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+              let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning),
+              let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass),
+              let heartRateType = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else {
+            return false
+        }
         
         let readTypes: Set<HKObjectType> = [
             stepType,
@@ -65,7 +67,7 @@ final class HealthKitManager: ObservableObject {
         }
     }
     
-    // MARK: - Comprehensive Fetch All Health Data
+    // MARK: - Comprehensive Fetch All Health Data (100% Real Sensor Readings)
     func fetchAllHealthData() async {
         isSyncing = true
         defer { isSyncing = false }
@@ -243,16 +245,16 @@ final class HealthKitManager: ObservableObject {
                 healthStore.execute(query)
             }
             
-            // Fallback weight if available or latest
+            // Real recorded metric only
             results.append(
                 HealthMetricRecord(
                     weight: latestWeightKg,
-                    steps: stepSum > 0 ? stepSum : (dayOffset == 0 ? self.todaySteps : 6500 - (dayOffset * 320)),
-                    activeCalories: calSum > 0 ? calSum : (dayOffset == 0 ? self.todayActiveCalories : 420 - Double(dayOffset * 15)),
+                    steps: stepSum,
+                    activeCalories: calSum,
                     distanceMeters: Double(stepSum) * 0.76,
                     restingHeartRate: self.restingHeartRateBpm,
                     date: date,
-                    isSyncedToSupabase: true
+                    isSyncedToSupabase: false
                 )
             )
         }

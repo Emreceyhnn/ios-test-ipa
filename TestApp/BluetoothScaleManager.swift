@@ -3,12 +3,10 @@ import CoreBluetooth
 
 // MARK: - Standard BLE Scale GATT Services & Characteristics
 enum BLEScaleUUIDs {
-    // Standard Bluetooth SIG Weight Scale Service (0x181D) & Body Composition Service (0x181B)
     static let weightScaleService = CBUUID(string: "181D")
     static let bodyCompositionService = CBUUID(string: "181B")
     static let customScaleService = CBUUID(string: "FFF0")
     
-    // Characteristics
     static let weightMeasurementChar = CBUUID(string: "2A9D")
     static let bodyCompositionChar = CBUUID(string: "2A9C")
     static let customDataChar = CBUUID(string: "FFF1")
@@ -27,7 +25,7 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
     @Published var isConnected: Bool = false
     @Published var discoveredDevices: [CBPeripheral] = []
     
-    // Live Measurement Output
+    // Live Measurement Output (Pure hardware data)
     @Published var liveWeightKg: Double = 0.0
     @Published var isStabilized: Bool = false
     @Published var bodyFatPercentage: Double? = nil
@@ -56,10 +54,8 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
             BLEScaleUUIDs.customScaleService
         ]
         
-        // Scan for scales or allow all peripherals if service filter is empty
         central.scanForPeripherals(withServices: services, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         
-        // Also fallback scan generic nearby devices if standard service not advertised
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
             guard let self = self, self.isScanning, self.discoveredDevices.isEmpty else { return }
             central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
@@ -76,7 +72,7 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
         stopScanning()
         connectedPeripheral = peripheral
         peripheral.delegate = self
-        statusMessage = "\(peripheral.name ?? "Cihaz") bağlanıyor..."
+        statusMessage = "\(peripheral.name ?? "Tartı") bağlanıyor..."
         centralManager?.connect(peripheral, options: nil)
     }
     
@@ -87,35 +83,6 @@ final class BluetoothScaleManager: NSObject, ObservableObject {
         connectedPeripheral = nil
         isConnected = false
         statusMessage = "Bağlantı kesildi"
-    }
-    
-    // Demo Simulator Hook for Testing without physical scale
-    func simulateScaleReading(targetWeight: Double = 74.5) {
-        Task {
-            isScanning = true
-            statusMessage = "Tartı aranıyor (Simülasyon)..."
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            
-            isConnected = true
-            isScanning = false
-            statusMessage = "Akıllı Tartı Bağlandı"
-            Haptic.success()
-            
-            // Simüle canlı ağırlık artışı
-            for step in 1...10 {
-                let factor = Double(step) / 10.0
-                liveWeightKg = (targetWeight * factor * 10).rounded() / 10
-                isStabilized = false
-                try? await Task.sleep(nanoseconds: 150_000_000)
-            }
-            
-            liveWeightKg = targetWeight
-            isStabilized = true
-            bodyFatPercentage = 16.4
-            lastReadingTimestamp = Date()
-            statusMessage = "Ölçüm Tamamlandı (\(targetWeight) kg)"
-            Haptic.heavy()
-        }
     }
 }
 
@@ -144,17 +111,12 @@ extension BluetoothScaleManager: CBCentralManagerDelegate {
         Task { @MainActor in
             let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? ""
             let lowerName = name.lowercased()
-            
-            // Check if name contains scale keywords
             let isScaleLike = lowerName.contains("scale") || lowerName.contains("tarti") || lowerName.contains("weight") || lowerName.contains("body") || lowerName.contains("fit") || lowerName.contains("mi")
             
-            if !name.isEmpty && (isScaleLike || !self.discoveredDevices.contains(peripheral)) {
-                if !self.discoveredDevices.contains(peripheral) {
-                    self.discoveredDevices.append(peripheral)
-                    if isScaleLike {
-                        // Auto-connect to detected scale
-                        self.connect(to: peripheral)
-                    }
+            if !name.isEmpty && !self.discoveredDevices.contains(peripheral) {
+                self.discoveredDevices.append(peripheral)
+                if isScaleLike {
+                    self.connect(to: peripheral)
                 }
             }
         }
@@ -216,14 +178,11 @@ extension BluetoothScaleManager: CBPeripheralDelegate {
     
     @MainActor
     private func parseWeightData(_ data: Data) {
-        // Standard GATT Weight Scale Measurement:
-        // Byte 0: Flags (Bit 0: Unit: 0 = SI (kg), 1 = Imperial (lb))
-        // Byte 1-2: Weight value as uint16 with resolution 0.005 kg or 0.01 kg
         guard data.count >= 3 else { return }
         
         let flags = data[0]
         let isImperial = (flags & 0x01) != 0
-        let isStabilizedFlag = (flags & 0x20) == 0 // Some standard profiles mark stabilization
+        let isStabilizedFlag = (flags & 0x20) == 0
         
         let rawWeight = UInt16(data[1]) | (UInt16(data[2]) << 8)
         var calculatedWeightKg = Double(rawWeight) * 0.005
@@ -232,7 +191,6 @@ extension BluetoothScaleManager: CBPeripheralDelegate {
             calculatedWeightKg = calculatedWeightKg * 0.45359237
         }
         
-        // Sanity check for human weight
         if calculatedWeightKg > 10.0 && calculatedWeightKg < 250.0 {
             self.liveWeightKg = (calculatedWeightKg * 10).rounded() / 10
             self.isStabilized = isStabilizedFlag

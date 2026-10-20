@@ -40,6 +40,13 @@ struct DashboardView: View {
             .sheet(isPresented: $showingAddTransaction) {
                 AddTransactionSheet(store: store)
             }
+            .task {
+                if !healthKit.isAuthorized {
+                    _ = await healthKit.requestAuthorization()
+                } else {
+                    await healthKit.fetchAllHealthData()
+                }
+            }
         }
     }
     
@@ -47,7 +54,7 @@ struct DashboardView: View {
     private var headerBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Merhaba, Emre 👋")
+                Text("Hoş Geldiniz 👋")
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 Text("AuraFit Finance")
@@ -60,6 +67,7 @@ struct DashboardView: View {
             
             Button {
                 Task {
+                    Haptic.light()
                     await store.syncAllHealthDataToDatabase()
                 }
             } label: {
@@ -98,15 +106,15 @@ struct DashboardView: View {
                 .foregroundColor(.white)
             
             HStack(spacing: 24) {
-                Label("Kayıtlı: \(store.transactions.count) İşlem", systemImage: "arrow.up.arrow.down")
+                Label("\(store.transactions.count) Kayıtlı İşlem", systemImage: "arrow.up.arrow.down")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
                 
                 Spacer()
                 
-                Label("Bütçe Sağlığı %84", systemImage: "sparkles")
+                Label(store.netBalance >= 0 ? "Bütçe Pozitif" : "Açık Bütçe", systemImage: "sparkles")
                     .font(.caption.bold())
-                    .foregroundColor(Theme.emerald)
+                    .foregroundColor(store.netBalance >= 0 ? Theme.emerald : Theme.rose)
             }
         }
         .padding(22)
@@ -152,7 +160,7 @@ struct DashboardView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Son Kilo")
+                    Text("Tartı Kilo")
                         .font(.caption2)
                         .foregroundColor(.gray)
                     Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : "-- kg")
@@ -218,7 +226,7 @@ struct DashboardView: View {
             } label: {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                    Text("İşlem Ekle")
+                    Text("Yeni İşlem Ekle")
                         .font(.subheadline.bold())
                 }
                 .frame(maxWidth: .infinity)
@@ -239,37 +247,64 @@ struct DashboardView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                 Spacer()
-                Text("Tümünü Gör")
-                    .font(.caption.bold())
-                    .foregroundColor(.cyan)
+                if !store.transactions.isEmpty {
+                    Text("\(store.transactions.count) İşlem")
+                        .font(.caption.bold())
+                        .foregroundColor(.gray)
+                }
             }
             
-            ForEach(store.transactions.prefix(5)) { item in
-                HStack(spacing: 14) {
-                    Image(systemName: item.categoryIcon)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(Color(hex: item.categoryColorHex))
-                        .frame(width: 44, height: 44)
-                        .background(Color(hex: item.categoryColorHex).opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title)
-                            .font(.subheadline.bold())
-                            .foregroundColor(.white)
-                        Text(item.categoryName)
-                            .font(.caption)
-                            .foregroundColor(.gray)
+            if store.transactions.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 36))
+                        .foregroundColor(.gray.opacity(0.5))
+                    Text("Henüz finansal işlem eklenmedi")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    Button {
+                        showingAddTransaction = true
+                    } label: {
+                        Text("İlk İşlemini Kaydet")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Theme.cardBackground)
+                            .foregroundColor(Theme.cyan)
+                            .cornerRadius(10)
                     }
-                    
-                    Spacer()
-                    
-                    Text("\(item.type == .income ? "+" : "-")\(store.selectedCurrency)\(String(format: "%.2f", item.amount))")
-                        .font(.subheadline.bold())
-                        .foregroundColor(item.type == .income ? Theme.emerald : .white)
                 }
-                .padding(14)
-                .glassCard(cornerRadius: 16)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .glassCard(cornerRadius: 18)
+            } else {
+                ForEach(store.transactions.prefix(5)) { item in
+                    HStack(spacing: 14) {
+                        Image(systemName: item.categoryIcon)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Color(hex: item.categoryColorHex))
+                            .frame(width: 44, height: 44)
+                            .background(Color(hex: item.categoryColorHex).opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
+                            Text(item.categoryName)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("\(item.type == .income ? "+" : "-")\(store.selectedCurrency)\(String(format: "%.2f", item.amount))")
+                            .font(.subheadline.bold())
+                            .foregroundColor(item.type == .income ? Theme.emerald : .white)
+                    }
+                    .padding(14)
+                    .glassCard(cornerRadius: 16)
+                }
             }
         }
     }
@@ -297,35 +332,41 @@ struct AddTransactionSheet: View {
                     }
                     .pickerStyle(.segmented)
                     
-                    TextField("Açıklama (Örn: Market)", text: $title)
+                    TextField("Açıklama (Örn: Market Alışverişi)", text: $title)
                         .padding()
                         .background(Theme.cardBackground)
                         .cornerRadius(12)
                         .foregroundColor(.white)
                     
-                    TextField("Tutar", text: $amountText)
+                    TextField("Tutar (\(store.selectedCurrency))", text: $amountText)
                         .keyboardType(.decimalPad)
                         .padding()
                         .background(Theme.cardBackground)
                         .cornerRadius(12)
                         .foregroundColor(.white)
                     
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(store.categories.filter { $0.type == type }) { cat in
-                                Button {
-                                    selectedCategory = cat
-                                    Haptic.light()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: cat.iconSymbol)
-                                        Text(cat.name)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Kategori Seçin")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(store.categories.filter { $0.type == type }) { cat in
+                                    Button {
+                                        selectedCategory = cat
+                                        Haptic.light()
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: cat.iconSymbol)
+                                            Text(cat.name)
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(selectedCategory?.id == cat.id ? Color(hex: cat.colorHex) : Theme.cardBackground)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(12)
                                     }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(selectedCategory?.id == cat.id ? Color(hex: cat.colorHex) : Theme.cardBackground)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(12)
                                 }
                             }
                         }
@@ -335,11 +376,12 @@ struct AddTransactionSheet: View {
                     
                     Button {
                         if let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")), !title.isEmpty {
+                            let cat = selectedCategory ?? store.categories.first(where: { $0.type == type })
                             let item = TransactionItem(
-                                categoryId: selectedCategory?.id,
-                                categoryName: selectedCategory?.name ?? "Genel",
-                                categoryIcon: selectedCategory?.iconSymbol ?? "cart.fill",
-                                categoryColorHex: selectedCategory?.colorHex ?? "#3B82F6",
+                                categoryId: cat?.id,
+                                categoryName: cat?.name ?? "Genel",
+                                categoryIcon: cat?.iconSymbol ?? "cart.fill",
+                                categoryColorHex: cat?.colorHex ?? "#3B82F6",
                                 amount: amount,
                                 type: type,
                                 title: title,
@@ -349,7 +391,7 @@ struct AddTransactionSheet: View {
                             dismiss()
                         }
                     } label: {
-                        Text("Kaydet")
+                        Text("İşlemi Kaydet")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -357,6 +399,8 @@ struct AddTransactionSheet: View {
                             .foregroundColor(.white)
                             .cornerRadius(16)
                     }
+                    .disabled(title.isEmpty || amountText.isEmpty)
+                    .opacity(title.isEmpty || amountText.isEmpty ? 0.6 : 1.0)
                 }
                 .padding()
             }
@@ -364,7 +408,7 @@ struct AddTransactionSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { dismiss() }
+                    Button("Vazgeç") { dismiss() }
                 }
             }
         }
