@@ -55,6 +55,7 @@ struct HealthTrackerView: View {
                 manualWeightSheet
             }
             .task {
+                bluetooth.startScanning()
                 if !healthKit.isAuthorized {
                     _ = await healthKit.requestAuthorization()
                 } else {
@@ -68,32 +69,18 @@ struct HealthTrackerView: View {
     private var syncStatusBar: some View {
         HStack {
             Circle()
-                .fill(healthKit.isAuthorized ? Theme.emerald : Theme.amber)
+                .fill(healthKit.isMotionAuthorized || healthKit.isAuthorized ? Theme.emerald : Theme.amber)
                 .frame(width: 8, height: 8)
             
-            Text(healthKit.isAuthorized ? "Apple Health Bağlı & Aktif" : "HealthKit İzni Bekleniyor")
+            Text(healthKit.isMotionAuthorized ? "CoreMotion Adım Sayar Aktif" : (healthKit.isAuthorized ? "Apple Health Aktif" : "Hareket İzni Bekleniyor"))
                 .font(.caption.bold())
-                .foregroundColor(healthKit.isAuthorized ? Theme.emerald : Theme.amber)
+                .foregroundColor(healthKit.isMotionAuthorized || healthKit.isAuthorized ? Theme.emerald : Theme.amber)
             
             Spacer()
             
-            if !healthKit.isAuthorized {
-                Button("İzin İste") {
-                    Task {
-                        _ = await healthKit.requestAuthorization()
-                    }
-                }
-                .font(.caption2.bold())
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Theme.cardBackground)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            } else {
-                Text("Sensörler Canlı")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
+            Text("Canlı Donanım")
+                .font(.caption2)
+                .foregroundColor(.gray)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -116,7 +103,7 @@ struct HealthTrackerView: View {
             }
             
             // Weight Display
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 HStack(alignment: .lastTextBaseline, spacing: 6) {
                     Text(bluetooth.liveWeightKg > 0 ? String(format: "%.1f", bluetooth.liveWeightKg) : (healthKit.latestWeightKg != nil ? String(format: "%.1f", healthKit.latestWeightKg!) : "--.-"))
                         .font(.system(size: 54, weight: .bold, design: .rounded))
@@ -127,14 +114,23 @@ struct HealthTrackerView: View {
                         .foregroundColor(.gray)
                 }
                 
-                if let fat = bluetooth.bodyFatPercentage {
-                    Text("Vücut Yağı: %\(String(format: "%.1f", fat))")
+                if bluetooth.isStabilized {
+                    Label("Ölçüm Sabitlendi", systemImage: "checkmark.seal.fill")
+                        .font(.caption.bold())
+                        .foregroundColor(Theme.emerald)
+                } else if bluetooth.liveWeightKg > 0 {
+                    Text("Canlı Tartılıyor...")
                         .font(.caption)
-                        .foregroundColor(.cyan)
-                } else if healthKit.latestWeightKg != nil {
-                    Text("Apple Sağlık'tan Alınan Son Kayıt")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.cyan)
+                }
+                
+                if !bluetooth.rawHexDebug.isEmpty {
+                    Text("Tartı Sinyali: \(bluetooth.rawHexDebug)")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(.gray.opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .padding(.horizontal, 8)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -153,7 +149,7 @@ struct HealthTrackerView: View {
                 } label: {
                     HStack {
                         Image(systemName: bluetooth.isScanning ? "stop.circle.fill" : "antenna.radiowaves.left.and.right")
-                        Text(bluetooth.isScanning ? "Taramayı Durdur" : "Tartı Ara")
+                        Text(bluetooth.isScanning ? "Durdur" : "Tartı Tara")
                     }
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
@@ -179,7 +175,7 @@ struct HealthTrackerView: View {
                 }
             }
             
-            // Auto Save to Apple Health & Supabase Button
+            // Save button when stabilized or weighed
             if bluetooth.liveWeightKg > 0 {
                 Button {
                     Task {
@@ -191,7 +187,7 @@ struct HealthTrackerView: View {
                 } label: {
                     HStack {
                         Image(systemName: "square.and.arrow.down.fill")
-                        Text("Apple Sağlık & DB'ye Kaydet")
+                        Text("Kilo Ölçümünü Kaydet (\(String(format: "%.1f", bluetooth.liveWeightKg)) kg)")
                     }
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
@@ -317,7 +313,7 @@ struct HealthTrackerView: View {
                     Image(systemName: "chart.bar.xaxis")
                         .font(.system(size: 32))
                         .foregroundColor(.gray.opacity(0.4))
-                    Text("Apple Sağlık'ta henüz son 7 güne ait adım kaydı yok")
+                    Text("Henüz haftalık adım kaydı oluşmadı")
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
@@ -341,18 +337,18 @@ struct HealthTrackerView: View {
                     Text("Son Ölçüm")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : "Kayıt yok")
+                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : (bluetooth.liveWeightKg > 0 ? "\(String(format: "%.1f", bluetooth.liveWeightKg)) kg" : "Kayıt yok"))
                         .font(.title2.bold())
                         .foregroundColor(.cyan)
                 }
                 Spacer()
                 VStack(alignment: .trailing) {
-                    Text("Sağlık Senkronu")
+                    Text("Tartı Durumu")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Text(healthKit.isAuthorized ? "Aktif" : "Beklemede")
+                    Text(bluetooth.isConnected ? "Bağlı" : "Beklemede")
                         .font(.subheadline.bold())
-                        .foregroundColor(healthKit.isAuthorized ? Theme.emerald : Theme.amber)
+                        .foregroundColor(bluetooth.isConnected ? Theme.emerald : Theme.amber)
                 }
             }
             .padding(14)
@@ -388,7 +384,7 @@ struct HealthTrackerView: View {
                             }
                         }
                     } label: {
-                        Text("Apple Sağlık'a ve Buluta Yaz")
+                        Text("Buluta ve Hafızaya Yaz")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
