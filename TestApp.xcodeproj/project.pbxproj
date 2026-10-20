@@ -22,6 +22,7 @@
 		A100001429000000000000014 /* SplitBillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001429000000000000014 /* SplitBillView.swift */; };
 		A100001529000000000000015 /* SavingsGoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001529000000000000015 /* SavingsGoalsView.swift */; };
 		A100001629000000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001629000000000000016 /* SettingsView.swift */; };
+		A100001829000000000000018 /* ScaleOCRScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001829000000000000018 /* ScaleOCRScanner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,7 @@
 		B100001529000000000000015 /* SavingsGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalsView.swift; sourceTree = "<group>"; };
 		B100001629000000000000016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B100001729000000000000017 /* TestApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TestApp.entitlements; sourceTree = "<group>"; };
+		B100001829000000000000018 /* ScaleOCRScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScaleOCRScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +84,7 @@
 				B100001429000000000000014 /* SplitBillView.swift */,
 				B100001529000000000000015 /* SavingsGoalsView.swift */,
 				B100001629000000000000016 /* SettingsView.swift */,
+				B100001829000000000000018 /* ScaleOCRScanner.swift */,
 				B10000032900000000000003 /* Info.plist */,
 				B100001729000000000000017 /* TestApp.entitlements */,
 			);
@@ -177,6 +180,7 @@
 				A100001429000000000000014 /* SplitBillView.swift in Sources */,
 				A100001529000000000000015 /* SavingsGoalsView.swift in Sources */,
 				A100001629000000000000016 /* SettingsView.swift in Sources */,
+				A100001829000000000000018 /* ScaleOCRScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

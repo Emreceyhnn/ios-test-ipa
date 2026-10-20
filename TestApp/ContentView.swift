@@ -30,7 +30,7 @@ struct ContentView: View {
             
             HealthTrackerView()
                 .tabItem {
-                    Label("Sağlık & Tartı", systemImage: "heart.fill")
+                    Label("Sağlık & Analiz", systemImage: "heart.fill")
                 }
                 .tag(2)
             

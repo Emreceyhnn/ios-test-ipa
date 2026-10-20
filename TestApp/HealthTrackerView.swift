@@ -1,14 +1,19 @@
 import SwiftUI
 import Charts
+import PhotosUI
 
-// MARK: - Health & Smart Scale View
+// MARK: - Health & Body Composition View (Pure CoreMotion & OKOK Photo Scanner)
 struct HealthTrackerView: View {
     @ObservedObject var healthKit = HealthKitManager.shared
-    @ObservedObject var bluetooth = BluetoothScaleManager.shared
     @ObservedObject var store = AppStore.shared
+    @StateObject private var ocr = ScaleOCRScanner.shared
     
+    // Photo Picker States
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var selectedImage: UIImage? = nil
+    @State private var showingScanSuccessSheet = false
     @State private var manualWeightText: String = ""
-    @State private var showingManualInput: Bool = false
+    @State private var showingManualSheet = false
     
     var body: some View {
         NavigationStack {
@@ -17,26 +22,28 @@ struct HealthTrackerView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // Top Sync Status Bar
-                        syncStatusBar
+                        // Top Sensor Bar
+                        motionSensorStatusBar
                         
-                        // Smart Bluetooth Scale Interactive Card
-                        bluetoothScaleCard
+                        // OKOK Photo Import & AI Vision Card
+                        okokPhotoScannerCard
                         
-                        // Today's Apple Health Ring Metrics
-                        todayHealthSummaryCards
+                        // Today's CoreMotion Walking & Calorie Metrics
+                        todayMotionSummaryCards
                         
-                        // Steps & Calories Chart
+                        // Body Metrics Detail Card (If Scanned from OKOK)
+                        if let result = ocr.lastResult, result.weightKg > 0 {
+                            scannedBodyMetricsCard(result)
+                        }
+                        
+                        // Weekly Steps Trend Chart
                         weeklyTrendsChart
-                        
-                        // Weight Tracking History Card
-                        weightHistoryCard
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("Sağlık & Tartı")
+            .navigationTitle("Sağlık & Vücut Analizi")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -51,34 +58,48 @@ struct HealthTrackerView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingManualInput) {
+            .sheet(isPresented: $showingManualSheet) {
                 manualWeightSheet
             }
-            .task {
-                bluetooth.startScanning()
-                if !healthKit.isAuthorized {
-                    _ = await healthKit.requestAuthorization()
-                } else {
-                    await healthKit.fetchAllHealthData()
+            .sheet(isPresented: $showingScanSuccessSheet) {
+                if let res = ocr.lastResult {
+                    scanConfirmationSheet(res)
                 }
+            }
+            .onChange(of: selectedPhotoItem) { newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        selectedImage = uiImage
+                        if let result = await ocr.processScaleImage(uiImage) {
+                            // Update weight
+                            healthKit.latestWeightKg = result.weightKg
+                            showingScanSuccessSheet = true
+                            await store.syncAllHealthDataToDatabase()
+                        }
+                    }
+                }
+            }
+            .task {
+                healthKit.startMotionTracking()
             }
         }
     }
     
-    // MARK: - Sync Status Bar
-    private var syncStatusBar: some View {
+    // MARK: - Motion Sensor Status Bar
+    private var motionSensorStatusBar: some View {
         HStack {
             Circle()
-                .fill(healthKit.isMotionAuthorized || healthKit.isAuthorized ? Theme.emerald : Theme.amber)
+                .fill(healthKit.isMotionAuthorized ? Theme.emerald : Theme.amber)
                 .frame(width: 8, height: 8)
             
-            Text(healthKit.isMotionAuthorized ? "CoreMotion Adım Sayar Aktif" : (healthKit.isAuthorized ? "Apple Health Aktif" : "Hareket İzni Bekleniyor"))
+            Text(healthKit.isMotionAuthorized ? "CoreMotion Donanım Sensörü Aktif" : "Hareket İzni Bekleniyor")
                 .font(.caption.bold())
-                .foregroundColor(healthKit.isMotionAuthorized || healthKit.isAuthorized ? Theme.emerald : Theme.amber)
+                .foregroundColor(healthKit.isMotionAuthorized ? Theme.emerald : Theme.amber)
             
             Spacer()
             
-            Text("Canlı Donanım")
+            Text("Adımlar Canlı")
                 .font(.caption2)
                 .foregroundColor(.gray)
         }
@@ -87,139 +108,119 @@ struct HealthTrackerView: View {
         .glassCard(cornerRadius: 12)
     }
     
-    // MARK: - Smart Scale Interactive Card
-    private var bluetoothScaleCard: some View {
+    // MARK: - OKOK Photo Scanner Card (The Highlight Feature)
+    private var okokPhotoScannerCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Label("Bluetooth Akıllı Tartı", systemImage: "wave.3.right.circle.fill")
+                Label("OKOK Ekranı ile Kilo & Analiz Çek", systemImage: "sparkles")
                     .font(.headline)
                     .foregroundColor(.white)
-                
                 Spacer()
-                
-                Text(bluetooth.statusMessage)
-                    .font(.caption)
-                    .foregroundColor(bluetooth.isConnected ? Theme.emerald : .gray)
+                Image(systemName: "camera.viewfinder")
+                    .foregroundColor(Theme.cyan)
             }
             
-            // Weight Display
-            VStack(spacing: 6) {
-                HStack(alignment: .lastTextBaseline, spacing: 6) {
-                    Text(bluetooth.liveWeightKg > 0 ? String(format: "%.1f", bluetooth.liveWeightKg) : (healthKit.latestWeightKg != nil ? String(format: "%.1f", healthKit.latestWeightKg!) : "--.-"))
-                        .font(.system(size: 54, weight: .bold, design: .rounded))
-                        .foregroundColor(bluetooth.isStabilized ? Theme.emerald : .white)
-                    
-                    Text("kg")
-                        .font(.title2.bold())
-                        .foregroundColor(.gray)
-                }
+            // Prominent Display
+            VStack(spacing: 4) {
+                Text(healthKit.latestWeightKg != nil ? String(format: "%.2f", healthKit.latestWeightKg!) : "--.--")
+                    .font(.system(size: 56, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, Theme.cyan],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 
-                if bluetooth.isStabilized {
-                    Label("Ölçüm Sabitlendi", systemImage: "checkmark.seal.fill")
-                        .font(.caption.bold())
-                        .foregroundColor(Theme.emerald)
-                } else if bluetooth.liveWeightKg > 0 {
-                    Text("Canlı Tartılıyor...")
-                        .font(.caption)
-                        .foregroundColor(Theme.cyan)
-                }
-                
-                if !bluetooth.rawHexDebug.isEmpty {
-                    Text("Tartı Sinyali: \(bluetooth.rawHexDebug)")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(.gray.opacity(0.8))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .padding(.horizontal, 8)
-                }
+                Text("kg (Son Güncel Ölçüm)")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
             .background(Color.black.opacity(0.2))
             .cornerRadius(18)
             
-            // BLE Actions
+            // Action Buttons
             HStack(spacing: 12) {
-                Button {
-                    if bluetooth.isScanning {
-                        bluetooth.stopScanning()
-                    } else {
-                        bluetooth.startScanning()
-                    }
-                } label: {
+                // Photos Picker Button
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     HStack {
-                        Image(systemName: bluetooth.isScanning ? "stop.circle.fill" : "antenna.radiowaves.left.and.right")
-                        Text(bluetooth.isScanning ? "Durdur" : "Tartı Tara")
-                    }
-                    .font(.subheadline.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(bluetooth.isScanning ? Theme.rose.opacity(0.3) : Theme.cardBackground)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                
-                Button {
-                    showingManualInput = true
-                } label: {
-                    HStack {
-                        Image(systemName: "square.and.pencil")
-                        Text("Manuel Kilo")
-                    }
-                    .font(.subheadline.bold())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.cardBackground)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-            }
-            
-            // Save button when stabilized or weighed
-            if bluetooth.liveWeightKg > 0 {
-                Button {
-                    Task {
-                        let saved = await healthKit.saveWeight(kilograms: bluetooth.liveWeightKg)
-                        if saved {
-                            await store.syncAllHealthDataToDatabase()
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "square.and.arrow.down.fill")
-                        Text("Kilo Ölçümünü Kaydet (\(String(format: "%.1f", bluetooth.liveWeightKg)) kg)")
+                        Image(systemName: "photo.on.rectangle.angled")
+                        Text(ocr.isScanning ? "Taranıyor..." : "Fotoğraf Seç / Paylaş")
                     }
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Theme.emeraldGradient)
+                    .background(Theme.cyanGradient)
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                    .shadow(color: Theme.cyan.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                
+                // Manual Button
+                Button {
+                    showingManualSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.pencil")
+                        Text("Manuel")
+                    }
+                    .font(.subheadline.bold())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(Theme.cardBackground)
                     .foregroundColor(.white)
                     .cornerRadius(14)
                 }
             }
+            
+            Text("OKOK uygulamasındaki paylaşım ekran görüntüsünü seçtiğinizde tüm veriler (Kilo, Yağ, Kas, Su, BMI vb.) anında okunur ve kaydedilir.")
+                .font(.caption2)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
         }
         .padding(18)
-        .glassCard(cornerRadius: 22, strokeColor: bluetooth.isConnected ? Theme.emerald.opacity(0.5) : Theme.cardBorder)
+        .glassCard(cornerRadius: 22, strokeColor: Theme.cyan.opacity(0.4))
     }
     
-    // MARK: - Health Summary Cards
-    private var todayHealthSummaryCards: some View {
+    // MARK: - CoreMotion Step & Walking Cards
+    private var todayMotionSummaryCards: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
             // Steps
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "figure.walk")
                         .foregroundColor(Theme.emerald)
-                    Text("Adım")
+                    Text("Bugün Adım")
                         .font(.caption.bold())
                         .foregroundColor(.gray)
                 }
                 Text("\(healthKit.todaySteps)")
-                    .font(.title2.bold())
+                    .font(.title.bold())
                     .foregroundColor(.white)
-                Text("Hedef: 10.000")
+                Text("Hedef: 10.000 adım")
                     .font(.caption2)
                     .foregroundColor(.gray)
+            }
+            .padding(16)
+            .glassCard(cornerRadius: 18)
+            
+            // Distance
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(Theme.cyan)
+                    Text("Mesafe")
+                        .font(.caption.bold())
+                        .foregroundColor(.gray)
+                }
+                Text("\(String(format: "%.2f", healthKit.todayDistanceMeters / 1000)) km")
+                    .font(.title.bold())
+                    .foregroundColor(.white)
+                Text("iPhone M-sensörü")
+                    .font(.caption2)
+                    .foregroundColor(Theme.cyan)
             }
             .padding(16)
             .glassCard(cornerRadius: 18)
@@ -229,33 +230,14 @@ struct HealthTrackerView: View {
                 HStack {
                     Image(systemName: "flame.fill")
                         .foregroundColor(Theme.rose)
-                    Text("Aktif Kalori")
+                    Text("Yakılan Kalori")
                         .font(.caption.bold())
                         .foregroundColor(.gray)
                 }
                 Text("\(String(format: "%.0f", healthKit.todayActiveCalories)) kcal")
                     .font(.title2.bold())
                     .foregroundColor(.white)
-                Text("Mesafe: \(String(format: "%.2f", healthKit.todayDistanceMeters / 1000)) km")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
-            .padding(16)
-            .glassCard(cornerRadius: 18)
-            
-            // Resting Heart Rate
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "heart.fill")
-                        .foregroundColor(.pink)
-                    Text("Dinlenme Nabız")
-                        .font(.caption.bold())
-                        .foregroundColor(.gray)
-                }
-                Text(healthKit.restingHeartRateBpm != nil ? "\(Int(healthKit.restingHeartRateBpm!)) bpm" : "-- bpm")
-                    .font(.title2.bold())
-                    .foregroundColor(.white)
-                Text(healthKit.restingHeartRateBpm != nil ? "Apple Watch verisi" : "Kayıt yok")
+                Text("Yürüyüş ve hareket")
                     .font(.caption2)
                     .foregroundColor(.gray)
             }
@@ -266,7 +248,7 @@ struct HealthTrackerView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "icloud.fill")
-                        .foregroundColor(.cyan)
+                        .foregroundColor(Theme.indigo)
                     Text("Bulut Senkronu")
                         .font(.caption.bold())
                         .foregroundColor(.gray)
@@ -274,7 +256,7 @@ struct HealthTrackerView: View {
                 Text("Supabase DB")
                     .font(.title3.bold())
                     .foregroundColor(.white)
-                Text(store.supabase.lastSyncTimestamp != nil ? "Son: \(store.supabase.lastSyncTimestamp!.formatted(date: .omitted, time: .shortened))" : "Hazır")
+                Text("Her ölçümde anında yazılır")
                     .font(.caption2)
                     .foregroundColor(Theme.emerald)
             }
@@ -283,16 +265,75 @@ struct HealthTrackerView: View {
         }
     }
     
-    // MARK: - Weekly Trends Chart
-    private var weeklyTrendsChart: some View {
+    // MARK: - Scanned Body Metrics Card
+    private func scannedBodyMetricsCard(_ result: OKOKScanResult) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Haftalık Adım Trendi")
+            Label("OKOK Vücut Kompozisyonu Analizi", systemImage: "person.text.rectangle.fill")
                 .font(.headline)
                 .foregroundColor(.white)
             
-            let nonZeroRecords = healthKit.weeklyRecords.filter { $0.steps > 0 }
+            Divider().background(Color.white.opacity(0.1))
             
-            if !nonZeroRecords.isEmpty {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                if let bmi = result.bmi {
+                    metricItem(label: "BMI (VKI)", value: String(format: "%.1f", bmi), unit: "")
+                }
+                if let fat = result.bodyFatPercent {
+                    metricItem(label: "Vücut Yağı", value: String(format: "%.1f", fat), unit: "%")
+                }
+                if let fatKg = result.bodyFatWeightKg {
+                    metricItem(label: "Yağ Kütlesi", value: String(format: "%.1f", fatKg), unit: "kg")
+                }
+                if let muscle = result.skeletalMusclePercent {
+                    metricItem(label: "İskelet Kası", value: String(format: "%.1f", muscle), unit: "%")
+                }
+                if let muscleKg = result.skeletalMuscleWeightKg {
+                    metricItem(label: "Kas Kütlesi", value: String(format: "%.1f", muscleKg), unit: "kg")
+                }
+                if let water = result.waterPercent {
+                    metricItem(label: "Su Oranı", value: String(format: "%.1f", water), unit: "%")
+                }
+                if let bmr = result.bmrKcal {
+                    metricItem(label: "Metabolizma", value: String(format: "%.0f", bmr), unit: "kcal")
+                }
+                if let vfat = result.visceralFat {
+                    metricItem(label: "İç Yağlanma (V-Fat)", value: String(format: "%.1f", vfat), unit: "")
+                }
+            }
+        }
+        .padding(18)
+        .glassCard(cornerRadius: 20)
+    }
+    
+    private func metricItem(label: String, value: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.gray)
+            HStack(spacing: 2) {
+                Text(value)
+                    .font(.subheadline.bold())
+                    .foregroundColor(.white)
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+    }
+    
+    // MARK: - Weekly Trends Chart
+    private var weeklyTrendsChart: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Haftalık Adım Trendi (CoreMotion)")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            let nonZero = healthKit.weeklyRecords.filter { $0.steps > 0 }
+            if !nonZero.isEmpty {
                 Chart(healthKit.weeklyRecords) { item in
                     BarMark(
                         x: .value("Gün", item.date, unit: .day),
@@ -310,10 +351,10 @@ struct HealthTrackerView: View {
                 .frame(height: 160)
             } else {
                 VStack(spacing: 8) {
-                    Image(systemName: "chart.bar.xaxis")
+                    Image(systemName: "figure.walk")
                         .font(.system(size: 32))
                         .foregroundColor(.gray.opacity(0.4))
-                    Text("Henüz haftalık adım kaydı oluşmadı")
+                    Text("Adım verileriniz telefonunuz cebinizdeyken toplanmaktadır")
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
@@ -325,38 +366,57 @@ struct HealthTrackerView: View {
         .glassCard(cornerRadius: 20)
     }
     
-    // MARK: - Weight History
-    private var weightHistoryCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Kilo & Vücut Analizi")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Son Ölçüm")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : (bluetooth.liveWeightKg > 0 ? "\(String(format: "%.1f", bluetooth.liveWeightKg)) kg" : "Kayıt yok"))
-                        .font(.title2.bold())
-                        .foregroundColor(.cyan)
+    // MARK: - Scan Confirmation Sheet
+    private func scanConfirmationSheet(_ res: OKOKScanResult) -> some View {
+        NavigationStack {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 56))
+                        .foregroundColor(Theme.emerald)
+                    
+                    Text("OKOK Ekranı Başarıyla Okundu!")
+                        .font(.title3.bold())
+                        .foregroundColor(.white)
+                    
+                    VStack(spacing: 8) {
+                        Text("\(String(format: "%.2f", res.weightKg)) kg")
+                            .font(.system(size: 42, weight: .bold, design: .rounded))
+                            .foregroundColor(Theme.cyan)
+                        
+                        if let fat = res.bodyFatPercent {
+                            Text("Vücut Yağı: %\(String(format: "%.1f", fat))")
+                                .foregroundColor(.gray)
+                        }
+                        if let bmi = res.bmi {
+                            Text("BMI: \(String(format: "%.1f", bmi))")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Theme.cardBackground)
+                    .cornerRadius(16)
+                    
+                    Spacer()
+                    
+                    Button("Tamam & Kaydet") {
+                        showingScanSuccessSheet = false
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Theme.emeraldGradient)
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
                 }
-                Spacer()
-                VStack(alignment: .trailing) {
-                    Text("Tartı Durumu")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text(bluetooth.isConnected ? "Bağlı" : "Beklemede")
-                        .font(.subheadline.bold())
-                        .foregroundColor(bluetooth.isConnected ? Theme.emerald : Theme.amber)
-                }
+                .padding()
             }
-            .padding(14)
-            .background(Color.white.opacity(0.04))
-            .cornerRadius(14)
+            .navigationTitle("Ölçüm Özeti")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .padding(18)
-        .glassCard(cornerRadius: 20)
     }
     
     // MARK: - Manual Weight Sheet
@@ -366,7 +426,7 @@ struct HealthTrackerView: View {
                 Theme.background.ignoresSafeArea()
                 
                 VStack(spacing: 20) {
-                    TextField("Kilonuz (kg, Örn: 74.5)", text: $manualWeightText)
+                    TextField("Kilonuz (kg, Örn: 91.95)", text: $manualWeightText)
                         .keyboardType(.decimalPad)
                         .padding()
                         .background(Theme.cardBackground)
@@ -376,15 +436,13 @@ struct HealthTrackerView: View {
                     Button {
                         if let weight = Double(manualWeightText.replacingOccurrences(of: ",", with: ".")) {
                             Task {
-                                let saved = await healthKit.saveWeight(kilograms: weight)
-                                if saved {
-                                    await store.syncAllHealthDataToDatabase()
-                                }
-                                showingManualInput = false
+                                healthKit.latestWeightKg = weight
+                                await store.syncAllHealthDataToDatabase()
+                                showingManualSheet = false
                             }
                         }
                     } label: {
-                        Text("Buluta ve Hafızaya Yaz")
+                        Text("Kaydet")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -398,11 +456,11 @@ struct HealthTrackerView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Kilo Girişi")
+            .navigationTitle("Manuel Kilo Girişi")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { showingManualInput = false }
+                    Button("Kapat") { showingManualSheet = false }
                 }
             }
         }

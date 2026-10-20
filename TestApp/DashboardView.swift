@@ -160,10 +160,10 @@ struct DashboardView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Tartı Kilo")
+                    Text("Kilo (OKOK)")
                         .font(.caption2)
                         .foregroundColor(.gray)
-                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.1f", healthKit.latestWeightKg!)) kg" : "-- kg")
+                    Text(healthKit.latestWeightKg != nil ? "\(String(format: "%.2f", healthKit.latestWeightKg!)) kg" : "-- kg")
                         .font(.subheadline.bold())
                         .foregroundColor(.cyan)
                 }
