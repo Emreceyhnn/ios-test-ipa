@@ -40,6 +40,8 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <!-- Privacy & Entitlements -->
+    <key>NSMotionUsageDescription</key>
+    <string>Günlük adım sayınızı, yürüme mesafenizi ve hareket verilerinizi canlı takip edebilmek için hareket sensörü izni gereklidir.</string>
     <key>NSHealthShareUsageDescription</key>
     <string>Adım, aktif kalori, mesafe, kalp atış hızı ve dinlenme verilerinizi analiz etmek ve buluta senkronize etmek için Apple Sağlık erişimi gereklidir.</string>
     <key>NSHealthUpdateUsageDescription</key>
