@@ -12,7 +12,7 @@ final class HealthKitManager: ObservableObject {
     @Published var isSyncing: Bool = false
     @Published var authorizationError: String?
     
-    // Live Today Data (Pure sensor metrics, default 0 or nil)
+    // Live Today Data (Pure sensor metrics)
     @Published var todaySteps: Int = 0
     @Published var todayActiveCalories: Double = 0.0
     @Published var todayDistanceMeters: Double = 0.0
@@ -22,13 +22,21 @@ final class HealthKitManager: ObservableObject {
     // Historical Trends (Last 7 Days)
     @Published var weeklyRecords: [HealthMetricRecord] = []
     
-    private init() {}
+    private init() {
+        // Automatically check availability and request on launch
+        if HKHealthStore.isHealthDataAvailable() {
+            Task {
+                await self.requestAuthorization()
+            }
+        }
+    }
     
     var isHealthDataAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
     }
     
-    // MARK: - Request Authorization
+    // MARK: - Request Authorization (Direct UI Prompt Trigger)
+    @discardableResult
     func requestAuthorization() async -> Bool {
         guard isHealthDataAvailable else {
             authorizationError = "Bu cihazda Apple Health mevcut değil."
@@ -55,15 +63,22 @@ final class HealthKitManager: ObservableObject {
             weightType
         ]
         
-        do {
-            try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
-            isAuthorized = true
-            await fetchAllHealthData()
-            return true
-        } catch {
-            authorizationError = error.localizedDescription
-            isAuthorized = false
-            return false
+        return await withCheckedContinuation { continuation in
+            healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { [weak self] success, error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if let error = error {
+                        self.authorizationError = error.localizedDescription
+                        self.isAuthorized = false
+                        continuation.resume(returning: false)
+                    } else {
+                        self.isAuthorized = true
+                        self.authorizationError = nil
+                        await self.fetchAllHealthData()
+                        continuation.resume(returning: true)
+                    }
+                }
+            }
         }
     }
     
@@ -96,14 +111,19 @@ final class HealthKitManager: ObservableObject {
         let quantity = HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: kilograms)
         let sample = HKQuantitySample(type: weightType, quantity: quantity, start: date, end: date)
         
-        do {
-            try await healthStore.save(sample)
-            self.latestWeightKg = kilograms
-            Haptic.success()
-            return true
-        } catch {
-            authorizationError = "Kilo kaydedilemedi: \(error.localizedDescription)"
-            return false
+        return await withCheckedContinuation { continuation in
+            healthStore.save(sample) { [weak self] success, error in
+                Task { @MainActor in
+                    if success {
+                        self?.latestWeightKg = kilograms
+                        Haptic.success()
+                        continuation.resume(returning: true)
+                    } else {
+                        self?.authorizationError = "Kilo kaydedilemedi: \(error?.localizedDescription ?? "")"
+                        continuation.resume(returning: false)
+                    }
+                }
+            }
         }
     }
     
@@ -245,7 +265,6 @@ final class HealthKitManager: ObservableObject {
                 healthStore.execute(query)
             }
             
-            // Real recorded metric only
             results.append(
                 HealthMetricRecord(
                     weight: latestWeightKg,

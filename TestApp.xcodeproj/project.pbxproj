@@ -15,13 +15,13 @@
 		A10000072900000000000007 /* BluetoothScaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000072900000000000007 /* BluetoothScaleManager.swift */; };
 		A10000082900000000000008 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000082900000000000008 /* SupabaseService.swift */; };
 		A10000092900000000000009 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000092900000000000009 /* AppStore.swift */; };
-		A10000102900000000000010 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001029000000000000010 /* DashboardView.swift */; };
-		A10000112900000000000011 /* HealthTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001129000000000000011 /* HealthTrackerView.swift */; };
-		A10000122900000000000012 /* TransactionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001229000000000000012 /* TransactionsView.swift */; };
-		A10000132900000000000013 /* SubscriptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001329000000000000013 /* SubscriptionsView.swift */; };
-		A10000142900000000000014 /* SplitBillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001429000000000000014 /* SplitBillView.swift */; };
-		A10000152900000000000015 /* SavingsGoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001529000000000000015 /* SavingsGoalsView.swift */; };
-		A10000162900000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001629000000000000016 /* SettingsView.swift */; };
+		A100001029000000000000010 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001029000000000000010 /* DashboardView.swift */; };
+		A100001129000000000000011 /* HealthTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001129000000000000011 /* HealthTrackerView.swift */; };
+		A100001229000000000000012 /* TransactionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001229000000000000012 /* TransactionsView.swift */; };
+		A100001329000000000000013 /* SubscriptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001329000000000000013 /* SubscriptionsView.swift */; };
+		A100001429000000000000014 /* SplitBillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001429000000000000014 /* SplitBillView.swift */; };
+		A100001529000000000000015 /* SavingsGoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001529000000000000015 /* SavingsGoalsView.swift */; };
+		A100001629000000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001629000000000000016 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +42,7 @@
 		B100001429000000000000014 /* SplitBillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitBillView.swift; sourceTree = "<group>"; };
 		B100001529000000000000015 /* SavingsGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalsView.swift; sourceTree = "<group>"; };
 		B100001629000000000000016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B100001729000000000000017 /* TestApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TestApp.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +83,7 @@
 				B100001529000000000000015 /* SavingsGoalsView.swift */,
 				B100001629000000000000016 /* SettingsView.swift */,
 				B10000032900000000000003 /* Info.plist */,
+				B100001729000000000000017 /* TestApp.entitlements */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -168,13 +170,13 @@
 				A10000072900000000000007 /* BluetoothScaleManager.swift in Sources */,
 				A10000082900000000000008 /* SupabaseService.swift in Sources */,
 				A10000092900000000000009 /* AppStore.swift in Sources */,
-				A10000102900000000000010 /* DashboardView.swift in Sources */,
-				A10000112900000000000011 /* HealthTrackerView.swift in Sources */,
-				A10000122900000000000012 /* TransactionsView.swift in Sources */,
-				A10000132900000000000013 /* SubscriptionsView.swift in Sources */,
-				A10000142900000000000014 /* SplitBillView.swift in Sources */,
-				A10000152900000000000015 /* SavingsGoalsView.swift in Sources */,
-				A10000162900000000000016 /* SettingsView.swift in Sources */,
+				A100001029000000000000010 /* DashboardView.swift in Sources */,
+				A100001129000000000000011 /* HealthTrackerView.swift in Sources */,
+				A100001229000000000000012 /* TransactionsView.swift in Sources */,
+				A100001329000000000000013 /* SubscriptionsView.swift in Sources */,
+				A100001429000000000000014 /* SplitBillView.swift in Sources */,
+				A100001529000000000000015 /* SavingsGoalsView.swift in Sources */,
+				A100001629000000000000016 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,6 +195,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = "TestApp/TestApp.entitlements";
 				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -226,6 +229,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = "TestApp/TestApp.entitlements";
 				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -250,6 +254,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = "TestApp/TestApp.entitlements";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TestApp/Info.plist;
@@ -273,6 +278,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = "TestApp/TestApp.entitlements";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TestApp/Info.plist;
